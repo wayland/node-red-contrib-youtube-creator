@@ -38,6 +38,37 @@ sync`.  This skips all the transitions, but keeps the FSM in sync with YouTube.
 
 #### Sequencing
 
+Numbered list matches the heading outline in [Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast) (excluding the page’s “Page Summary” block).
+
+4. Stage 1: Set up your broadcast
+5. Step 1.1: Create your broadcast
+6. Step 1.2: Create your stream
+7. Step 1.3: Bind your broadcast to its stream
+8. Stage 2: Claim your content
+9. Step 2.1: Create an asset
+10. Step 2.2: Define your ownership of the asset
+11. Step 2.3: Set the asset's match policy
+12. Step 2.4: Claim your video
+13. Step 2.5: Update the ad settings for the broadcast
+14. Stage 3: Test
+15. Step 3.1: Embed a monitor stream player
+16. Step 3.2: Start your video
+17. Step 3.3: Confirm your video stream is active
+18. Step 3.4: Transition your broadcast's status to testing
+19. Step 3.5: Completing your testing
+20. Step 3.6: Enable `autoStart` and `autoStop` properties
+21. Stage 4: Broadcast
+22. Step 4.1: Start your video
+23. Step 4.2: Confirm your video stream is active
+24. Step 4.3: Transition your broadcast's status to live
+25. Step 4.4: Insert ad breaks into your broadcast
+26. Stage 5: Conclude your broadcast
+27. Step 5.1: Stop streaming
+28. Step 5.2: Transition your broadcast's status to complete
+29. Stage 6: Create a reference
+30. Step 6.1: Poll the Data API for the video's status
+31. Step 6.2: Create a reference from the processed video
+
 #### Transitions
 
 - Each state defines the transition so that it ends up right back where it 
