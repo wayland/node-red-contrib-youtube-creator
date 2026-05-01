@@ -117,134 +117,838 @@ unbind/recreate stream per the guide) before returning to `testing` /
 	"message": "Stream is ahead of schedule",
 }
 ```
+...or...
+```
+{
+    "action": "log",
+    "level": "error",
+    "message": "Can't handle the stream status",
+}
+```
 
 - If a towards_STATE transition would require going backwards in the Sequence 
   of States, then the action is a "notice" one, as per above.  
 - If the towards_STATE transition would require going forward in the Sequence 
   of States, then the "next_state" is set to the next item in the sequence, and 
   the "goal_state" is set to the state we want to end up in
-
+- If the current state is `revoked` or `lifeCycleStatusUnspecified`, then emit 
+  the error instead.  These two states also cannot be goal states.  
 
 ## FSM JSON (paste into the Node-RED FSM config)
 
-This JSON is structured per the manual for 
-`node-red-contrib-finite-statemachine` 
+This JSON is structured per the manual for
+`node-red-contrib-finite-statemachine`
 ([Manual](https://raw.githubusercontent.com/lutzer/node-red-contrib-finite-statemachine/master/MANUAL.md)).
 
-- **States included**: every documented `status.lifeCycleStatus` value 
-  (`created`, `ready`, `testStarting`, `testing`, `liveStarting`, `live`, 
-  `complete`, `revoked`).  
-- **Also included**: `lifeCycleStatusUnspecified` (seen in some client libraries 
-  / “unknown” cases). If you don’t want it, remove the `UNSPECIFIED` state and 
-  the `lifeCycleStatusUnspecified` transitions.  
+- **States** match **Sequence of States**, plus `REVOKED` and `UNSPECIFIED` (for
+  YouTube `revoked` and `lifeCycleStatusUnspecified`) so **`msg.control = sync`**
+  can land there.
+- **Valid intent topics** are `towards_<goal>` with `<goal>` in:
+  `not_yet_set`, `not_exist`, `created`, `ready`, `teststarting`, `testing`,
+  `livestarting`, `live`, `complete` (lowercase). Each transition **self-loops**
+  the FSM `status`; YouTube truth still comes from **sync**.
+- **Non-goal states:** `REVOKED` and `UNSPECIFIED` are **not goal states**, so
+  there are **no** transitions like `towards_revoked` or
+  `towards_lifecyclestatusunspecified` in this FSM. If your flow attempts to send
+  those topics, the FSM node will treat them as invalid/unknown topics.
+- **Current state `REVOKED` or `UNSPECIFIED`:** every *valid* `towards_*` goal
+  emits the **`log`** payload below (emit error instead of `transition` / `notice`).
+- **Payload shapes** match **Transitions**:
+  - `transition`: `action`, `next_state`, `goal_state`
+  - `notice`: `action`, `message` only
+  - `log`: `action`, `level`, `message`
+- **`next_state`** is one step forward on the canonical path that **includes**
+  `teststarting` → `testing` → `livestarting`. If you **omit Stage 3**, override
+  `next_state` from `READY` toward `live*` in a Function node (e.g. use
+  `livestarting` instead of `teststarting`).
+
 
 ```json
 {
   "state": {
-    "status": "UNSPECIFIED",
+    "status": "NOT_YET_SET",
     "data": {
       "source": "youtube.liveBroadcast.status.lifeCycleStatus"
     }
   },
   "transitions": {
-    "UNSPECIFIED": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+    "NOT_YET_SET": {
+      "towards_not_yet_set": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_yet_set",
+          "goal_state": "not_yet_set"
+        }
+      },
+      "towards_not_exist": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "not_exist"
+        }
+      },
+      "towards_created": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "created"
+        }
+      },
+      "towards_ready": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "ready"
+        }
+      },
+      "towards_teststarting": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "teststarting"
+        }
+      },
+      "towards_testing": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "testing"
+        }
+      },
+      "towards_livestarting": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "livestarting"
+        }
+      },
+      "towards_live": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "NOT_YET_SET",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "complete"
+        }
+      }
+    },
+    "NOT_EXIST": {
+      "towards_not_yet_set": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "not_exist",
+          "goal_state": "not_exist"
+        }
+      },
+      "towards_created": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "created"
+        }
+      },
+      "towards_ready": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "ready"
+        }
+      },
+      "towards_teststarting": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "teststarting"
+        }
+      },
+      "towards_testing": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "testing"
+        }
+      },
+      "towards_livestarting": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "livestarting"
+        }
+      },
+      "towards_live": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "NOT_EXIST",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "complete"
+        }
+      }
     },
     "CREATED": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "CREATED",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "CREATED",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_created": {
+        "status": "CREATED",
+        "data": {
+          "action": "transition",
+          "next_state": "created",
+          "goal_state": "created"
+        }
+      },
+      "towards_ready": {
+        "status": "CREATED",
+        "data": {
+          "action": "transition",
+          "next_state": "ready",
+          "goal_state": "ready"
+        }
+      },
+      "towards_teststarting": {
+        "status": "CREATED",
+        "data": {
+          "action": "transition",
+          "next_state": "ready",
+          "goal_state": "teststarting"
+        }
+      },
+      "towards_testing": {
+        "status": "CREATED",
+        "data": {
+          "action": "transition",
+          "next_state": "ready",
+          "goal_state": "testing"
+        }
+      },
+      "towards_livestarting": {
+        "status": "CREATED",
+        "data": {
+          "action": "transition",
+          "next_state": "ready",
+          "goal_state": "livestarting"
+        }
+      },
+      "towards_live": {
+        "status": "CREATED",
+        "data": {
+          "action": "transition",
+          "next_state": "ready",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "CREATED",
+        "data": {
+          "action": "transition",
+          "next_state": "ready",
+          "goal_state": "complete"
+        }
+      }
     },
     "READY": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "READY",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "READY",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_created": {
+        "status": "READY",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_ready": {
+        "status": "READY",
+        "data": {
+          "action": "transition",
+          "next_state": "ready",
+          "goal_state": "ready"
+        }
+      },
+      "towards_teststarting": {
+        "status": "READY",
+        "data": {
+          "action": "transition",
+          "next_state": "teststarting",
+          "goal_state": "teststarting"
+        }
+      },
+      "towards_testing": {
+        "status": "READY",
+        "data": {
+          "action": "transition",
+          "next_state": "teststarting",
+          "goal_state": "testing"
+        }
+      },
+      "towards_livestarting": {
+        "status": "READY",
+        "data": {
+          "action": "transition",
+          "next_state": "teststarting",
+          "goal_state": "livestarting"
+        }
+      },
+      "towards_live": {
+        "status": "READY",
+        "data": {
+          "action": "transition",
+          "next_state": "teststarting",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "READY",
+        "data": {
+          "action": "transition",
+          "next_state": "teststarting",
+          "goal_state": "complete"
+        }
+      }
     },
     "TESTSTARTING": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_created": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_ready": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_teststarting": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "teststarting",
+          "goal_state": "teststarting"
+        }
+      },
+      "towards_testing": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "testing",
+          "goal_state": "testing"
+        }
+      },
+      "towards_livestarting": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "testing",
+          "goal_state": "livestarting"
+        }
+      },
+      "towards_live": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "testing",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "TESTSTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "testing",
+          "goal_state": "complete"
+        }
+      }
     },
     "TESTING": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "TESTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "TESTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_created": {
+        "status": "TESTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_ready": {
+        "status": "TESTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_teststarting": {
+        "status": "TESTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_testing": {
+        "status": "TESTING",
+        "data": {
+          "action": "transition",
+          "next_state": "testing",
+          "goal_state": "testing"
+        }
+      },
+      "towards_livestarting": {
+        "status": "TESTING",
+        "data": {
+          "action": "transition",
+          "next_state": "livestarting",
+          "goal_state": "livestarting"
+        }
+      },
+      "towards_live": {
+        "status": "TESTING",
+        "data": {
+          "action": "transition",
+          "next_state": "livestarting",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "TESTING",
+        "data": {
+          "action": "transition",
+          "next_state": "livestarting",
+          "goal_state": "complete"
+        }
+      }
     },
     "LIVESTARTING": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_created": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_ready": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_teststarting": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_testing": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_livestarting": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "livestarting",
+          "goal_state": "livestarting"
+        }
+      },
+      "towards_live": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "live",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "LIVESTARTING",
+        "data": {
+          "action": "transition",
+          "next_state": "live",
+          "goal_state": "complete"
+        }
+      }
     },
     "LIVE": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "LIVE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "LIVE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_created": {
+        "status": "LIVE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_ready": {
+        "status": "LIVE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_teststarting": {
+        "status": "LIVE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_testing": {
+        "status": "LIVE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_livestarting": {
+        "status": "LIVE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_live": {
+        "status": "LIVE",
+        "data": {
+          "action": "transition",
+          "next_state": "live",
+          "goal_state": "live"
+        }
+      },
+      "towards_complete": {
+        "status": "LIVE",
+        "data": {
+          "action": "transition",
+          "next_state": "complete",
+          "goal_state": "complete"
+        }
+      }
     },
     "COMPLETE": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_not_exist": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_created": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_ready": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_teststarting": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_testing": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_livestarting": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_live": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "notice",
+          "message": "Stream is ahead of schedule"
+        }
+      },
+      "towards_complete": {
+        "status": "COMPLETE",
+        "data": {
+          "action": "transition",
+          "next_state": "complete",
+          "goal_state": "complete"
+        }
+      }
     },
     "REVOKED": {
-      "lifeCycleStatusUnspecified": "UNSPECIFIED",
-      "created": "CREATED",
-      "ready": "READY",
-      "testStarting": "TESTSTARTING",
-      "testing": "TESTING",
-      "liveStarting": "LIVESTARTING",
-      "live": "LIVE",
-      "complete": "COMPLETE",
-      "revoked": "REVOKED"
+      "towards_not_yet_set": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_not_exist": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_created": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_ready": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_teststarting": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_testing": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_livestarting": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_live": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_complete": {
+        "status": "REVOKED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      }
+    },
+    "UNSPECIFIED": {
+      "towards_not_yet_set": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_not_exist": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_created": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_ready": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_teststarting": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_testing": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_livestarting": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_live": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      },
+      "towards_complete": {
+        "status": "UNSPECIFIED",
+        "data": {
+          "action": "log",
+          "level": "error",
+          "message": "Can't handle the stream status"
+        }
+      }
     }
   }
 }
@@ -252,9 +956,21 @@ This JSON is structured per the manual for
 
 ## Notes for the flow wiring
 
-- Drive transitions by setting `msg.topic` to the exact lifecycle string 
-  returned by the API (case-sensitive as shown above): `created`, `ready`, 
-  `testStarting`, `testing`, `liveStarting`, `live`, `complete`, `revoked` (and 
-  optionally `lifeCycleStatusUnspecified`).   
-- Use `msg.control = "reset"` to return to initial state, per the node manual.
+- **Intent (“towards”) messages:** set `msg.topic` to `towards_<goal>` with 
+  `<goal>` one of `not_yet_set`, `not_exist`, `created`, `ready`, `teststarting`, 
+  `testing`, `livestarting`, `live`, `complete` (lowercase). After the node 
+  fires, read `msg.payload.data` for `action` and the fields that apply 
+  (`goal_state` / `next_state` for `transition`; only `message` for `notice`; 
+  `level` / `message` for `log`).
+- **Non-goal goals:** do not send `towards_revoked` or
+  `towards_lifecyclestatusunspecified` — those topics are intentionally *not*
+  present in the FSM JSON.
+- **Truth from YouTube:** map `liveBroadcast.status.lifeCycleStatus` from your 
+  poll to `msg.control = "sync"` with a payload `{ "status": "<FSM state>" }` 
+  where `<FSM state>` is `CREATED`, `READY`, `TESTSTARTING`, `TESTING`, 
+  `LIVESTARTING`, `LIVE`, `COMPLETE`, `REVOKED`, `UNSPECIFIED`, or your synthetic 
+  states (`NOT_YET_SET`, `NOT_EXIST`). Map API `liveStarting` → `LIVESTARTING`, 
+  `lifeCycleStatusUnspecified` → `UNSPECIFIED`, etc.
+- **`msg.control = "reset"`** returns to the JSON initial state (`NOT_YET_SET`), 
+  per the node manual.
 
