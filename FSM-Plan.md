@@ -38,36 +38,35 @@ sync`.  This skips all the transitions, but keeps the FSM in sync with YouTube.
 
 #### Sequencing
 
-Numbered list matches the heading outline in [Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast) (excluding the page’s “Page Summary” block).
+Stages and steps follow [Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast). The **Status** column is typical `liveBroadcast.status.lifeCycleStatus` (or a short chain when the doc describes a transition) for **steps** only; stages are grouping rows. **Actor** is filled where a physical operator/device clearly performs that step.
 
-4. Stage 1: Set up your broadcast
-5. Step 1.1: Create your broadcast
-6. Step 1.2: Create your stream
-7. Step 1.3: Bind your broadcast to its stream
-8. Stage 2: Claim your content
-9. Step 2.1: Create an asset
-10. Step 2.2: Define your ownership of the asset
-11. Step 2.3: Set the asset's match policy
-12. Step 2.4: Claim your video
-13. Step 2.5: Update the ad settings for the broadcast
-14. Stage 3: Test
-15. Step 3.1: Embed a monitor stream player
-16. Step 3.2: Start your video
-17. Step 3.3: Confirm your video stream is active
-18. Step 3.4: Transition your broadcast's status to testing
-19. Step 3.5: Completing your testing
-20. Step 3.6: Enable `autoStart` and `autoStop` properties
-21. Stage 4: Broadcast
-22. Step 4.1: Start your video
-23. Step 4.2: Confirm your video stream is active
-24. Step 4.3: Transition your broadcast's status to live
-25. Step 4.4: Insert ad breaks into your broadcast
-26. Stage 5: Conclude your broadcast
-27. Step 5.1: Stop streaming
-28. Step 5.2: Transition your broadcast's status to complete
-29. Stage 6: Create a reference
-30. Step 6.1: Poll the Data API for the video's status
-31. Step 6.2: Create a reference from the processed video
+**Tascam VS-R264 “Stream” button (fact check):** Tascam documents that the front-panel **STREAM** control turns **RTMP streaming on and off** (including simultaneous control of RTMP 1/2/3 after firmware V2.0.1)—i.e. it **starts and stops sending encoded video** to whatever ingest URL(s) you configured in the unit’s streaming settings, not a YouTube API call. By contrast, **Step 1.3 (bind)** is YouTube’s [`liveBroadcasts.bind`](https://developers.google.com/youtube/v3/live/docs/liveBroadcasts/bind) in the API (or equivalent workflow in YouTube Studio): it links the **broadcast** resource to the **live stream** resource on YouTube’s side. The encoder does not execute “bind”; you typically paste that stream’s **ingest URL + stream key** into the VS-R264 (or set it via its web UI/API), *after* the bind (or parallel setup) has given you those values. Marketing copy also describes “press STREAM to start streaming” once setup is done ([TASCAM VS-R264 product page](https://tascam.com/us/product/vs-r264/)).
+
+| Stage/Step | Status | Actor | Comments |
+| --- | --- | --- | --- |
+| Stage 1: Set up your broadcast | | |
+| Step 1.1: Create your broadcast | `created` (often becomes `ready` after required fields and settings are complete) | |
+| Step 1.2: Create your stream | `created` or `ready` (unchanged; this step is the `liveStream` resource, not the broadcast lifecycle) | |
+| Step 1.3: Bind your broadcast to its stream | `ready` (typical before you transition to `testing` or `live`) | Not VS-R264 **Stream** — YouTube API / operator (`liveBroadcasts.bind` or Studio workflow) |
+| Stage 2: Claim your content | | | We're going to skip this stage completely |
+| Stage 3: Test (omit this stage if the guide’s monitor-stream / testing path does not apply; proceed to Stage 4 instead) | | |
+| Step 3.1: Embed a monitor stream player | `ready` | |
+| Step 3.2: Start your video | `ready` (encoder/stream activity; broadcast not transitioned yet) | Tascam VS-R264 (press **Stream**) |
+| Step 3.3: Confirm your video stream is active | `ready` | |
+| Step 3.4: Transition your broadcast's status to testing | `testStarting` → `testing` (poll until `testing`; see [Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast)) | |
+| Step 3.5: Completing your testing | `testing` (or briefly `ready` again if you unbind/recreate stream per the doc’s troubleshooting path) | |
+| Step 3.6: Enable `autoStart` and `autoStop` properties | `testing` (optional; doc places this after successful testing, before the public broadcast) | |
+| Stage 4: Broadcast (if you skipped Stage 3, follow the guide’s non-testing path; see steps below) | | |
+| Step 4.1: Start your video | `testing` (or `ready` if no testing stage) | Tascam VS-R264 (press **Stream**) |
+| Step 4.2: Confirm your video stream is active | `testing` (or `ready` if no testing stage) | |
+| Step 4.3: Transition your broadcast's status to live | `liveStarting` → `live` (or auto-start: may jump toward `live` without a manual transition; still expect `liveStarting` while the transition completes) | |
+| Step 4.4: Insert ad breaks into your broadcast | `live` | |
+| Stage 5: Conclude your broadcast | | |
+| Step 5.1: Stop streaming | `live` (until encoder stops and/or you transition or auto-stop runs) | Tascam VS-R264 (STREAM **off** — same control as start; RTMP stops per Tascam docs) |
+| Step 5.2: Transition your broadcast's status to complete | `complete` (or auto-stop after ingest ends; ends in `complete`) | |
+| Stage 6: Create a reference | | |
+| Step 6.1: Poll the Data API for the video's status | `complete` (`status.uploadStatus` on the `video` resource is what you poll here) | |
+| Step 6.2: Create a reference from the processed video | `complete` | |
 
 #### Transitions
 
