@@ -36,7 +36,7 @@ sync`.  This skips all the transitions, but keeps the FSM in sync with YouTube.
 
 ### FSM States
 
-#### Sequencing
+#### Sequence Explanation
 
 Stages and steps follow [Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast). The **Status** column is typical `liveBroadcast.status.lifeCycleStatus` (or a short chain when the doc describes a transition) for **steps** only; stages are grouping rows. **Actor** is filled where a physical operator/device clearly performs that step.
 
@@ -44,29 +44,57 @@ Stages and steps follow [Life of a Broadcast](https://developers.google.com/yout
 
 | Stage/Step | Status | Actor | Comments |
 | --- | --- | --- | --- |
-| Stage 1: Set up your broadcast | | |
-| Step 1.1: Create your broadcast | `created` (often becomes `ready` after required fields and settings are complete) | |
-| Step 1.2: Create your stream | `created` or `ready` (unchanged; this step is the `liveStream` resource, not the broadcast lifecycle) | |
-| Step 1.3: Bind your broadcast to its stream | `ready` (typical before you transition to `testing` or `live`) | Not VS-R264 **Stream** — YouTube API / operator (`liveBroadcasts.bind` or Studio workflow) |
-| Stage 2: Claim your content | | | We're going to skip this stage completely |
-| Stage 3: Test (omit this stage if the guide’s monitor-stream / testing path does not apply; proceed to Stage 4 instead) | | |
-| Step 3.1: Embed a monitor stream player | `ready` | |
-| Step 3.2: Start your video | `ready` (encoder/stream activity; broadcast not transitioned yet) | Tascam VS-R264 (press **Stream**) |
-| Step 3.3: Confirm your video stream is active | `ready` | |
-| Step 3.4: Transition your broadcast's status to testing | `testStarting` → `testing` (poll until `testing`; see [Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast)) | |
-| Step 3.5: Completing your testing | `testing` (or briefly `ready` again if you unbind/recreate stream per the doc’s troubleshooting path) | |
-| Step 3.6: Enable `autoStart` and `autoStop` properties | `testing` (optional; doc places this after successful testing, before the public broadcast) | |
-| Stage 4: Broadcast (if you skipped Stage 3, follow the guide’s non-testing path; see steps below) | | |
-| Step 4.1: Start your video | `testing` (or `ready` if no testing stage) | Tascam VS-R264 (press **Stream**) |
-| Step 4.2: Confirm your video stream is active | `testing` (or `ready` if no testing stage) | |
-| Step 4.3: Transition your broadcast's status to live | `liveStarting` → `live` (or auto-start: may jump toward `live` without a manual transition; still expect `liveStarting` while the transition completes) | |
-| Step 4.4: Insert ad breaks into your broadcast | `live` | |
-| Stage 5: Conclude your broadcast | | |
-| Step 5.1: Stop streaming | `live` (until encoder stops and/or you transition or auto-stop runs) | Tascam VS-R264 (STREAM **off** — same control as start; RTMP stops per Tascam docs) |
-| Step 5.2: Transition your broadcast's status to complete | `complete` (or auto-stop after ingest ends; ends in `complete`) | |
-| Stage 6: Create a reference | | |
-| Step 6.1: Poll the Data API for the video's status | `complete` (`status.uploadStatus` on the `video` resource is what you poll here) | |
-| Step 6.2: Create a reference from the processed video | `complete` | |
+| Stage 1: Set up your broadcast | | | |
+| Step 1.1: Create your broadcast | `created` (often becomes `ready` after required fields and settings are complete) | | |
+| Step 1.2: Create your stream | `created` or `ready` (unchanged; this step is the `liveStream` resource, not the broadcast lifecycle) | | |
+| Step 1.3: Bind your broadcast to its stream | `ready` (typical before you transition to `testing` or `live`) | Not VS-R264 **Stream** — YouTube API / operator (`liveBroadcasts.bind` or Studio workflow) | |
+| Stage 2: Claim your content | | | Skip this stage (per plan) |
+| Stage 3: Test (omit this stage if the guide’s monitor-stream / testing path does not apply; proceed to Stage 4 instead) | | | |
+| Step 3.1: Embed a monitor stream player | `ready` | | |
+| Step 3.2: Start your video | `ready` (encoder/stream activity; broadcast not transitioned yet) | Tascam VS-R264 (press **Stream**) | |
+| Step 3.3: Confirm your video stream is active | `ready` | | |
+| Step 3.4: Transition your broadcast's status to testing | `testStarting` → `testing` (poll until `testing`; see [Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast)) | | |
+| Step 3.5: Completing your testing | `testing` (or briefly `ready` again if you unbind/recreate stream per the doc’s troubleshooting path) | | |
+| Step 3.6: Enable `autoStart` and `autoStop` properties | `testing` (optional; doc places this after successful testing, before the public broadcast) | | |
+| Stage 4: Broadcast (if you skipped Stage 3, follow the guide’s non-testing path; see steps below) | | | |
+| Step 4.1: Start your video | `testing` (or `ready` if no testing stage) | Tascam VS-R264 (press **Stream**) | |
+| Step 4.2: Confirm your video stream is active | `testing` (or `ready` if no testing stage) | | |
+| Step 4.3: Transition your broadcast's status to live | `liveStarting` → `live` (or auto-start: may jump toward `live` without a manual transition; still expect `liveStarting` while the transition completes) | | |
+| Step 4.4: Insert ad breaks into your broadcast | `live` | | |
+| Stage 5: Conclude your broadcast | | | |
+| Step 5.1: Stop streaming | `live` (until encoder stops and/or you transition or auto-stop runs) | Tascam VS-R264 (STREAM **off** — same control as start; RTMP stops per Tascam docs) | |
+| Step 5.2: Transition your broadcast's status to complete | `complete` (or auto-stop after ingest ends; ends in `complete`) | | |
+| Stage 6: Create a reference | | | |
+| Step 6.1: Poll the Data API for the video's status | `complete` (`status.uploadStatus` on the `video` resource is what you poll here) | | |
+| Step 6.2: Create a reference from the processed video | `complete` | | |
+
+#### Sequence of States
+
+Typical order of `liveBroadcast.status.lifeCycleStatus` values for **this** plan 
+(Stage 2 skipped; Stage 3 optional if you use the guide’s testing / 
+monitor-stream path). Transient “starting” states may last seconds to about a 
+minute while YouTube completes the transition ([Life of a Broadcast](https://developers.google.com/youtube/v3/live/life-of-a-broadcast)).    
+
+There are also some additions.  These are the states we want to track in the 
+FSM.  
+
+- `NOT_YET_SET` -- not a YouTube state; indicates that we need to sync from 
+  YouTube.  This should be the starting state of the FSM.  
+- `NOT_EXIST` -- not a YouTube state; indicates that the video in question 
+  doesn't exist yet, and needs to be created
+- `created`
+- `ready`
+- `testStarting` (only if you transition to `testing`; omit if you skip Stage 3)
+- `testing` (omit if you skip Stage 3)
+- `liveStarting` (when going to `live`, including after `testing` or directly from `ready` if you skip testing)
+- `live`
+- `complete`
+
+Other documented values (not a normal forward sequence): `revoked` (admin 
+removal); `lifeCycleStatusUnspecified` (unset/unknown in some clients). 
+Troubleshooting can briefly revisit `ready` while still bound (e.g. 
+unbind/recreate stream per the guide) before returning to `testing` / 
+`liveStarting` again.
 
 #### Transitions
 
@@ -90,11 +118,11 @@ Stages and steps follow [Life of a Broadcast](https://developers.google.com/yout
 }
 ```
 
-- If a towards_STATE transition would require going backwards in the sequencing, 
-  then the action is a "notice" one, as per above.  
-- If the towards_STATE transition would require going forward, then the 
-  "next_state" is set to the next item in the sequence, and the "goal_state" is 
-  set to the state we want to end up in
+- If a towards_STATE transition would require going backwards in the Sequence 
+  of States, then the action is a "notice" one, as per above.  
+- If the towards_STATE transition would require going forward in the Sequence 
+  of States, then the "next_state" is set to the next item in the sequence, and 
+  the "goal_state" is set to the state we want to end up in
 
 
 ## FSM JSON (paste into the Node-RED FSM config)
