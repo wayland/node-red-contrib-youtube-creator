@@ -1,0 +1,84 @@
+<script type="text/html" data-template-name="youtube-account">
+    <div class="form-row">
+        <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-config-input-name" placeholder="Church channel">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-channelId"><i class="fa fa-youtube-play"></i> Channel ID</label>
+        <input type="text" id="node-config-input-channelId" placeholder="Optional default channel id">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-clientId"><i class="fa fa-key"></i> Client ID</label>
+        <input type="text" id="node-config-input-clientId">
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-clientSecret"><i class="fa fa-lock"></i> Client secret</label>
+        <input type="password" id="node-config-input-clientSecret">
+    </div>
+    <div class="form-row">
+        <label>&nbsp;</label>
+        <button type="button" id="node-config-authenticate" class="red-ui-button">
+            <i class="fa fa-sign-in"></i> Authenticate
+        </button>
+        <span id="node-config-auth-status" style="margin-left:8px;"></span>
+    </div>
+    <div class="form-tips">
+        Register this redirect URI in Google Cloud Console:
+        <code id="node-config-redirect-uri"></code>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="youtube-account">
+    <p>Shared YouTube OAuth credentials for live streaming nodes.</p>
+    <p>Configure Google OAuth client id/secret, authenticate once, then reference this account from youtube-stream-tracker nodes.</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('youtube-account', {
+        category: 'config',
+        defaults: {
+            name: { value: '' },
+            channelId: { value: '' }
+        },
+        credentials: {
+            clientId: { type: 'text' },
+            clientSecret: { type: 'password' },
+            accessToken: { type: 'password' },
+            refreshToken: { type: 'password' },
+            expiryDate: { type: 'text' }
+        },
+        label: function () {
+            return this.name || 'youtube account';
+        },
+        oneditprepare: function () {
+            const node = this;
+            const adminRoot = RED.settings.httpAdminRoot || '/';
+            const normalizedRoot = adminRoot.endsWith('/') ? adminRoot.slice(0, -1) : adminRoot;
+            $('#node-config-redirect-uri').text(normalizedRoot + '/youtube-account/auth/callback');
+
+            if (this.credentials && this.credentials.clientId) {
+                $('#node-config-input-clientId').val(this.credentials.clientId);
+            }
+
+            function refreshStatus() {
+                $.getJSON('youtube-account/status/' + node.id, function (status) {
+                    if (status.connected) {
+                        $('#node-config-auth-status').text('Connected').css('color', 'green');
+                    } else if (status.error) {
+                        $('#node-config-auth-status').text(status.error).css('color', 'red');
+                    } else if (status.hasTokens) {
+                        $('#node-config-auth-status').text('Tokens stored; deploy to validate').css('color', '#999');
+                    } else {
+                        $('#node-config-auth-status').text('Not authenticated').css('color', '#999');
+                    }
+                });
+            }
+
+            $('#node-config-authenticate').on('click', function () {
+                window.open('youtube-account/auth/' + node.id, 'youtube-oauth', 'width=600,height=700');
+            });
+
+            refreshStatus();
+        }
+    });
+</script>

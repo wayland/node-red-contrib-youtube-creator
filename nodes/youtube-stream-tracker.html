@@ -1,0 +1,79 @@
+<script type="text/html" data-template-name="youtube-stream-tracker">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-account"><i class="fa fa-user"></i> Account</label>
+        <input type="text" id="node-input-account">
+    </div>
+    <div class="form-row">
+        <label for="node-input-broadcastId"><i class="fa fa-youtube-play"></i> Broadcast ID</label>
+        <input type="text" id="node-input-broadcastId" placeholder="Optional; created when advancing to created+">
+    </div>
+    <div class="form-row">
+        <label for="node-input-streamId"><i class="fa fa-video-camera"></i> Stream ID</label>
+        <input type="text" id="node-input-streamId" placeholder="Optional; created when needed">
+    </div>
+    <div class="form-row">
+        <label for="node-input-broadcastTitle"><i class="fa fa-header"></i> Broadcast title</label>
+        <input type="text" id="node-input-broadcastTitle" placeholder="Used when creating a broadcast">
+    </div>
+    <div class="form-row">
+        <label for="node-input-streamTitle"><i class="fa fa-header"></i> Stream title</label>
+        <input type="text" id="node-input-streamTitle" placeholder="Used when creating a stream">
+    </div>
+    <div class="form-row">
+        <label for="node-input-skipTesting">&nbsp;</label>
+        <input type="checkbox" id="node-input-skipTesting" style="width:auto;">
+        <label for="node-input-skipTesting" style="width:auto;">Skip testing stage</label>
+    </div>
+    <div class="form-row">
+        <label for="node-input-pollIntervalNormal"><i class="fa fa-clock-o"></i> Poll (normal, s)</label>
+        <input type="number" id="node-input-pollIntervalNormal" min="1" placeholder="20">
+    </div>
+    <div class="form-row">
+        <label for="node-input-pollIntervalActive"><i class="fa fa-bolt"></i> Poll (active, s)</label>
+        <input type="number" id="node-input-pollIntervalActive" min="1" placeholder="5">
+    </div>
+    <div class="form-row">
+        <label for="node-input-pollIntervalExpensive"><i class="fa fa-hourglass-half"></i> Poll (expensive, s)</label>
+        <input type="number" id="node-input-pollIntervalExpensive" min="1" placeholder="60">
+    </div>
+</script>
+
+<script type="text/html" data-help-name="youtube-stream-tracker">
+    <p>Tracks one YouTube Live broadcast lifecycle and drives in-scope API transitions toward a goal stage.</p>
+    <p>Input <code>msg.payload</code> actions:</p>
+    <ul>
+        <li><code>{ "action": "set_goal", "goal": "live" }</code></li>
+        <li><code>{ "action": "sync" }</code></li>
+        <li><code>{ "action": "reset", "pollNow": true }</code></li>
+    </ul>
+    <p>Output emits status change messages (<code>stage_changed</code>, <code>warning</code>, <code>goal_reached</code>, etc.).</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('youtube-stream-tracker', {
+        category: 'social',
+        color: '#CC0000',
+        defaults: {
+            name: { value: '' },
+            account: { value: '', type: 'youtube-account', required: true },
+            broadcastId: { value: '' },
+            streamId: { value: '' },
+            broadcastTitle: { value: 'Node-RED Live Broadcast' },
+            streamTitle: { value: 'Node-RED Live Stream' },
+            skipTesting: { value: false },
+            pollIntervalNormal: { value: 20, validate: RED.validators.number() },
+            pollIntervalActive: { value: 5, validate: RED.validators.number() },
+            pollIntervalExpensive: { value: 60, validate: RED.validators.number() }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'font-awesome/fa-youtube-play',
+        label: function () {
+            return this.name || 'youtube stream tracker';
+        }
+    });
+</script>

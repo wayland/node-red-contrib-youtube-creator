@@ -1,0 +1,125 @@
+{
+  "transitions": {
+    "NOT_YET_SET": {
+      "towards_not_yet_set": { "data": { "action": "transition", "next_state": "not_yet_set", "goal_state": "not_yet_set" } },
+      "towards_not_exist": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "not_exist" } },
+      "towards_created": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "created" } },
+      "towards_ready": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "ready" } },
+      "towards_teststarting": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "teststarting" } },
+      "towards_testing": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "testing" } },
+      "towards_livestarting": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "livestarting" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "complete" } }
+    },
+    "NOT_EXIST": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "transition", "next_state": "not_exist", "goal_state": "not_exist" } },
+      "towards_created": { "data": { "action": "transition", "next_state": "created", "goal_state": "created" } },
+      "towards_ready": { "data": { "action": "transition", "next_state": "created", "goal_state": "ready" } },
+      "towards_teststarting": { "data": { "action": "transition", "next_state": "created", "goal_state": "teststarting" } },
+      "towards_testing": { "data": { "action": "transition", "next_state": "created", "goal_state": "testing" } },
+      "towards_livestarting": { "data": { "action": "transition", "next_state": "created", "goal_state": "livestarting" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "created", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "created", "goal_state": "complete" } }
+    },
+    "CREATED": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_created": { "data": { "action": "transition", "next_state": "created", "goal_state": "created" } },
+      "towards_ready": { "data": { "action": "transition", "next_state": "ready", "goal_state": "ready" } },
+      "towards_teststarting": { "data": { "action": "transition", "next_state": "ready", "goal_state": "teststarting" } },
+      "towards_testing": { "data": { "action": "transition", "next_state": "ready", "goal_state": "testing" } },
+      "towards_livestarting": { "data": { "action": "transition", "next_state": "ready", "goal_state": "livestarting" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "ready", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "ready", "goal_state": "complete" } }
+    },
+    "READY": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_created": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_ready": { "data": { "action": "transition", "next_state": "ready", "goal_state": "ready" } },
+      "towards_teststarting": { "data": { "action": "transition", "next_state": "teststarting", "goal_state": "teststarting" } },
+      "towards_testing": { "data": { "action": "transition", "next_state": "teststarting", "goal_state": "testing" } },
+      "towards_livestarting": { "data": { "action": "transition", "next_state": "teststarting", "goal_state": "livestarting" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "teststarting", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "teststarting", "goal_state": "complete" } }
+    },
+    "TESTSTARTING": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_created": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_ready": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_teststarting": { "data": { "action": "transition", "next_state": "teststarting", "goal_state": "teststarting" } },
+      "towards_testing": { "data": { "action": "transition", "next_state": "testing", "goal_state": "testing" } },
+      "towards_livestarting": { "data": { "action": "transition", "next_state": "testing", "goal_state": "livestarting" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "testing", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "testing", "goal_state": "complete" } }
+    },
+    "TESTING": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_created": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_ready": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_teststarting": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_testing": { "data": { "action": "transition", "next_state": "testing", "goal_state": "testing" } },
+      "towards_livestarting": { "data": { "action": "transition", "next_state": "livestarting", "goal_state": "livestarting" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "livestarting", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "livestarting", "goal_state": "complete" } }
+    },
+    "LIVESTARTING": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_created": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_ready": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_teststarting": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_testing": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_livestarting": { "data": { "action": "transition", "next_state": "livestarting", "goal_state": "livestarting" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "live", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "live", "goal_state": "complete" } }
+    },
+    "LIVE": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_created": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_ready": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_teststarting": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_testing": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_livestarting": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_live": { "data": { "action": "transition", "next_state": "live", "goal_state": "live" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "complete", "goal_state": "complete" } }
+    },
+    "COMPLETE": {
+      "towards_not_yet_set": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_not_exist": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_created": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_ready": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_teststarting": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_testing": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_livestarting": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_live": { "data": { "action": "notice", "message": "Stream is ahead of schedule" } },
+      "towards_complete": { "data": { "action": "transition", "next_state": "complete", "goal_state": "complete" } }
+    },
+    "REVOKED": {
+      "towards_not_yet_set": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_not_exist": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_created": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_ready": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_teststarting": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_testing": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_livestarting": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_live": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_complete": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } }
+    },
+    "UNSPECIFIED": {
+      "towards_not_yet_set": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_not_exist": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_created": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_ready": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_teststarting": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_testing": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_livestarting": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_live": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } },
+      "towards_complete": { "data": { "action": "log", "level": "error", "message": "Can't handle the stream status" } }
+    }
+  }
+}
