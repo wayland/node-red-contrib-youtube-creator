@@ -29,8 +29,104 @@
 </script>
 
 <script type="text/html" data-help-name="youtube-account">
-    <p>Shared YouTube OAuth credentials for live streaming nodes.</p>
-    <p>Configure Google OAuth client id/secret, authenticate once, then reference this account from youtube-stream-tracker nodes.</p>
+    <p>Configuration node for YouTube Data API access (OAuth 2.0). It does not appear on
+    the flow canvas and has no wires — create it under <em>Configuration nodes</em> and
+    select it from <strong>youtube-stream-tracker</strong> (and any future nodes in this
+    package). One account can be shared by many trackers.</p>
+
+    <p>Token refresh runs here so all referencing nodes use a single valid client.
+    <strong>Service accounts are not supported</strong> for YouTube Live; use a Google
+    user account that owns the channel.</p>
+
+    <h3>Configuration</h3>
+    <dl class="message-properties">
+        <dt>Name <span class="property-type">string</span></dt>
+        <dd>Label shown in the configuration list and tracker account dropdown
+        (e.g. <em>Church channel</em>).</dd>
+
+        <dt>Channel ID <span class="property-type">string</span></dt>
+        <dd>Optional YouTube channel id. When set, it is passed as
+        <code>channelId</code> on <code>liveBroadcasts.insert</code> for trackers that
+        create broadcasts. Required if the Google account manages multiple channels and
+        you need a specific one. Leave empty to use the API default for the authorized user.</dd>
+
+        <dt>Client ID <span class="property-type">string (credential)</span></dt>
+        <dd>OAuth 2.0 client id from Google Cloud Console (type <strong>Web application</strong>).
+        Stored encrypted in Node-RED credentials.</dd>
+
+        <dt>Client secret <span class="property-type">password (credential)</span></dt>
+        <dd>OAuth client secret from the same Cloud Console client. Stored encrypted.</dd>
+    </dl>
+
+    <h3>Authenticate</h3>
+    <p>After entering client id and secret, click <strong>Authenticate</strong>. A browser
+    window opens Google sign-in; choose the account that owns the target YouTube channel
+    and grant access. On success, access and refresh tokens are saved encrypted.</p>
+    <p>Register this <strong>Authorized redirect URI</strong> in Google Cloud (shown at the
+    bottom of the editor, typically):</p>
+    <pre>http://127.0.0.1:1880/youtube-account/auth/callback</pre>
+    <p>Adjust host and port if your Node-RED editor URL differs. The path is always
+    <code>{httpAdminRoot}/youtube-account/auth/callback</code>. A mismatch causes
+    <code>redirect_uri_mismatch</code>.</p>
+    <p>Status after authenticate:</p>
+    <ul>
+        <li><strong>Connected</strong> — tokens valid after deploy</li>
+        <li><strong>Not authenticated</strong> — run Authenticate</li>
+        <li><strong>Tokens stored; deploy to validate</strong> — deploy the flow, then check again</li>
+        <li>Error text — see troubleshooting below</li>
+    </ul>
+    <p>Re-run Authenticate to refresh tokens or after revoking access. Deploy flows after
+    auth changes.</p>
+
+    <h3>OAuth scope</h3>
+    <p>This package requests one write scope:</p>
+    <pre>https://www.googleapis.com/auth/youtube</pre>
+    <p>Do not combine with <code>youtube.readonly</code> or multiple overlapping YouTube
+    write scopes. Read-only scope cannot create broadcasts or run transitions.</p>
+
+    <h3>Google Cloud setup (summary)</h3>
+    <ol>
+        <li>Create or select a project in <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a>.</li>
+        <li>Enable <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank">YouTube Data API v3</a>.</li>
+        <li>Configure the <a href="https://console.cloud.google.com/auth/overview" target="_blank">OAuth consent screen</a>; for external apps in testing, add each user as a test user.</li>
+        <li>Create an OAuth client (Web application) under <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Credentials</a> and add the redirect URI above.</li>
+        <li>Copy client id and secret into this node, then Authenticate.</li>
+    </ol>
+
+    <h3>Prerequisites</h3>
+    <p>The YouTube channel must already be eligible to live stream (verified channel, live
+    streaming enabled — first-time enablement can take up to 24 hours). See
+    <a href="https://support.google.com/youtube/answer/2474026" target="_blank">Get started with live streaming</a>.</p>
+
+    <h3>Troubleshooting</h3>
+    <dl class="message-properties">
+        <dt>redirect_uri_mismatch</dt>
+        <dd>Redirect URI in Cloud Console must match the editor URI exactly.</dd>
+
+        <dt>Access blocked / app not verified</dt>
+        <dd>External app in testing: add the Google account as a test user on the consent screen.</dd>
+
+        <dt>No refresh token received</dt>
+        <dd>Revoke app access in Google account settings, then Authenticate again (consent uses <code>prompt=consent</code>).</dd>
+
+        <dt>NoLinkedYouTubeAccount</dt>
+        <dd>Do not use a service account; use the user OAuth flow.</dd>
+
+        <dt>insufficientPermissions</dt>
+        <dd>Channel may not have live streaming enabled on YouTube.</dd>
+
+        <dt>Tracker reports auth errors</dt>
+        <dd>Fix this config node first; trackers emit <code>error</code> on their output when the account is unusable.</dd>
+    </dl>
+
+    <h3>Security</h3>
+    <p>Client secret and tokens live in Node-RED’s encrypted credentials store. Do not commit
+    <code>flows_cred.json</code> or backups to git. Restrict who can open the editor and
+    configuration nodes.</p>
+
+    <h3>Details</h3>
+    <p>Full OAuth checklist and quota notes: package <code>README.md</code> and
+    <code>TrackerSpecification.md</code>.</p>
 </script>
 
 <script type="text/javascript">

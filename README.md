@@ -34,7 +34,7 @@ Or, while developing locally:
 
 ```bash
 cd ~/.node-red
-npm install /home/wayland/src/node-red/node-red-contrib-youtube-creator
+npm install $NODE_DIR
 ```
 
 Restart Node-RED and deploy. The **youtube-stream-tracker** node appears under the **social** category. **youtube-account** is added from **Configuration nodes**.
@@ -169,11 +169,24 @@ Reset internal state:
 { "action": "reset", "pollNow": true }
 ```
 
+Update settings at runtime (in memory; not saved to the flow). Include any fields to change:
+
+```json
+{
+  "action": "configure",
+  "streamTitle": "Sunday 10am — Main camera",
+  "broadcastTitle": "Church Live",
+  "skipTesting": true
+}
+```
+
+Recognized fields: `broadcastId`, `streamId`, `broadcastTitle`, `streamTitle`, `skipTesting`, `pollIntervalNormal`, `pollIntervalActive`, `pollIntervalExpensive`. Title changes apply only to the next resource creation on YouTube.
+
 ### Output events
 
 The single output emits status messages, including:
 
-- `stage_changed`, `goal_set`, `goal_reached`
+- `stage_changed`, `goal_set`, `goal_reached`, `configured`
 - `transition_planned`, `youtube_action_started`, `youtube_action_done`, `youtube_action_failed`
 - `notice` — e.g. goal behind current stage
 - `warning` — `code: "bind_required"` when bind is needed externally

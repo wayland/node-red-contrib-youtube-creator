@@ -43,14 +43,223 @@
 </script>
 
 <script type="text/html" data-help-name="youtube-stream-tracker">
-    <p>Tracks one YouTube Live broadcast lifecycle and drives in-scope API transitions toward a goal stage.</p>
-    <p>Input <code>msg.payload</code> actions:</p>
-    <ul>
-        <li><code>{ "action": "set_goal", "goal": "live" }</code></li>
-        <li><code>{ "action": "sync" }</code></li>
-        <li><code>{ "action": "reset", "pollNow": true }</code></li>
-    </ul>
-    <p>Output emits status change messages (<code>stage_changed</code>, <code>warning</code>, <code>goal_reached</code>, etc.).</p>
+    <p>Tracks one YouTube Live broadcast and steps its <code>lifeCycleStatus</code> toward a
+    <em>goal</em> stage using the YouTube Data API. Polls YouTube on a timer, performs in-scope
+    transitions (create broadcast/stream, move to testing/live/complete), and emits status messages
+    on its output. Bind and RTMP ingest are <strong>not</strong> done by this node — use separate
+    flows when you see <code>bind_required</code> warnings or need to start an encoder.</p>
+
+    <h3>Configuration</h3>
+    <p>All settings below are defaults at deploy. Most can be changed at runtime with the
+    <code>configure</code> input (except <strong>Name</strong> and <strong>Account</strong>).</p>
+
+    <dl class="message-properties">
+        <dt>Name <span class="property-type">string</span></dt>
+        <dd>Label for this node in the editor only.</dd>
+
+        <dt>Account <span class="property-type">youtube-account</span></dt>
+        <dd>Required. The configuration node that holds OAuth credentials and the shared YouTube
+        API client. Create one under <em>Configuration nodes</em> before using this tracker.</dd>
+
+        <dt>Broadcast ID <span class="property-type">string</span></dt>
+        <dd>Optional. An existing YouTube <code>liveBroadcast</code> id. Leave empty to have the
+        tracker create a broadcast when the goal advances to <code>created</code> or beyond.
+        If set, polling and transitions target this broadcast.</dd>
+
+        <dt>Stream ID <span class="property-type">string</span></dt>
+        <dd>Optional. An existing YouTube <code>liveStream</code> id. Leave empty to create a
+        stream when needed (before or with broadcast creation). The stream holds the RTMP ingest
+        endpoint; binding broadcast to stream must still be done outside this node.</dd>
+
+        <dt>Broadcast title <span class="property-type">string</span></dt>
+        <dd>Title passed to <code>liveBroadcasts.insert</code> when a new broadcast is created.
+        Does not rename a broadcast that already exists on YouTube.</dd>
+
+        <dt>Stream title <span class="property-type">string</span></dt>
+        <dd>Title passed to <code>liveStreams.insert</code> when a new stream is created.
+        Does not rename an existing stream. Often set via <code>configure</code> before
+        <code>set_goal</code> so each service can use a descriptive name.</dd>
+
+        <dt>Skip testing stage <span class="property-type">boolean</span></dt>
+        <dd>When enabled, the path from <code>ready</code> toward live skips
+        <code>testStarting</code> / <code>testing</code> and uses <code>liveStarting</code>
+        instead. Use when you do not need a private test stream on YouTube.</dd>
+
+        <dt>Poll (normal, s) <span class="property-type">number</span></dt>
+        <dd>Default <code>20</code>. Interval in seconds for routine polling while the broadcast
+        is in a stable lifecycle state.</dd>
+
+        <dt>Poll (active, s) <span class="property-type">number</span></dt>
+        <dd>Default <code>5</code>. Faster polling while YouTube is in a starting state
+        (<code>testStarting</code>, <code>liveStarting</code>) or after an API transition until
+        the expected stage appears.</dd>
+
+        <dt>Poll (expensive, s) <span class="property-type">number</span></dt>
+        <dd>Default <code>60</code>. Slower polling after the broadcast reaches
+        <code>complete</code>, to reduce API quota use.</dd>
+    </dl>
+
+    <h3>Inputs</h3>
+    <p>Send <code>msg.payload</code> with an <code>action</code> field.</p>
+
+    <h4>set_goal</h4>
+    <p>Set the lifecycle stage to work toward (one YouTube step at a time):</p>
+    <pre>{
+  "action": "set_goal",
+  "goal": "live"
+}</pre>
+    <p>Valid goals: <code>not_yet_set</code>, <code>not_exist</code>, <code>created</code>,
+    <code>ready</code>, <code>teststarting</code>, <code>testing</code>, <code>livestarting</code>,
+    <code>live</code>, <code>complete</code>. If the goal is behind the current stage, a
+    <code>notice</code> is emitted (<em>Stream is ahead of schedule</em>) and YouTube is not
+    regressed.</p>
+
+    <h4>configure</h4>
+    <p>Update settings in memory without redeploying. Include only the fields to change:</p>
+    <pre>{
+  "action": "configure",
+  "streamTitle": "Sunday 10am — Main camera",
+  "skipTesting": true
+}</pre>
+    <p>Recognized fields: <code>broadcastId</code>, <code>streamId</code>, <code>broadcastTitle</code>,
+    <code>streamTitle</code>, <code>skipTesting</code>, <code>pollIntervalNormal</code>,
+    <code>pollIntervalActive</code>, <code>pollIntervalExpensive</code>. Emits
+    <code>configured</code> with an <code>updated</code> array. Does not change the current or goal
+    stage.</p>
+
+    <h4>sync</h4>
+    <pre>{ "action": "sync" }</pre>
+    <p>Force an immediate poll from YouTube and refresh the synced stage. Does not change
+    <code>goal_stage</code>.</p>
+
+    <h4>reset</h4>
+    <pre>{ "action": "reset", "pollNow": true }</pre>
+    <p>Clears the goal and in-flight work, sets the internal stage to <code>not_yet_set</code>,
+    and restores broadcast/stream ids from the editor defaults. Optional <code>pollNow</code>
+    triggers an immediate poll.</p>
+
+    <h3>Outputs</h3>
+    <p>Every message uses <code>msg.payload</code>. Most fields appear on every message;
+    others depend on <code>event</code> (see below).</p>
+
+    <h4>Payload fields</h4>
+    <dl class="message-properties">
+        <dt>event <span class="property-type">string</span></dt>
+        <dd>What happened. See <em>Event types</em> below for allowed values.</dd>
+
+        <dt>current_stage <span class="property-type">string</span></dt>
+        <dd>Tracker’s synced lifecycle stage (lowercase). Possible values:
+        <code>not_yet_set</code> (no successful poll yet),
+        <code>not_exist</code> (configured broadcast id missing on YouTube),
+        <code>created</code>, <code>ready</code>, <code>teststarting</code>,
+        <code>testing</code>, <code>livestarting</code>, <code>live</code>,
+        <code>complete</code>, or error states <code>revoked</code>,
+        <code>lifecyclestatusunspecified</code>.</dd>
+
+        <dt>goal_stage <span class="property-type">string | null</span></dt>
+        <dd>Stage being worked toward from the last <code>set_goal</code>, or
+        <code>null</code> if no goal is set. Same value set as input goals
+        (<code>created</code>, <code>ready</code>, <code>live</code>, etc.).</dd>
+
+        <dt>youtube_lifeCycleStatus <span class="property-type">string | null</span></dt>
+        <dd>Raw <code>liveBroadcast.status.lifeCycleStatus</code> from the last poll
+        (YouTube API spelling): <code>created</code>, <code>ready</code>,
+        <code>testStarting</code>, <code>testing</code>, <code>liveStarting</code>,
+        <code>live</code>, <code>complete</code>, <code>revoked</code>,
+        <code>lifeCycleStatusUnspecified</code>. <code>null</code> before the first
+        successful poll or when no broadcast id is configured.</dd>
+
+        <dt>broadcastId <span class="property-type">string</span></dt>
+        <dd>YouTube broadcast id in use (configured or created at runtime). Omitted if unset.</dd>
+
+        <dt>streamId <span class="property-type">string</span></dt>
+        <dd>YouTube stream id in use. Omitted if unset.</dd>
+
+        <dt>bound <span class="property-type">boolean</span></dt>
+        <dd><code>true</code> if the poll shows the broadcast is bound to the stream;
+        <code>false</code> otherwise. Bind is never performed by this node.</dd>
+
+        <dt>account <span class="property-type">string</span></dt>
+        <dd>Name (or id) of the linked <strong>youtube-account</strong> config node.</dd>
+
+        <dt>timestamp <span class="property-type">string</span></dt>
+        <dd>ISO 8601 UTC time when the message was emitted.</dd>
+
+        <dt>previous_stage <span class="property-type">string</span></dt>
+        <dd><code>stage_changed</code> only. <code>current_stage</code> before this update.</dd>
+
+        <dt>next_stage <span class="property-type">string</span></dt>
+        <dd><code>transition_planned</code> only. Next forward stage the tracker will
+        pursue (<code>teststarting</code>, <code>livestarting</code>, <code>created</code>, etc.).</dd>
+
+        <dt>youtube_method <span class="property-type">string</span></dt>
+        <dd>API method for transition / action events:
+        <code>liveBroadcasts.insert</code>, <code>liveStreams.insert</code>, or
+        <code>liveBroadcasts.transition</code>. May be omitted on
+        <code>transition_planned</code> when the next step is poll-only.</dd>
+
+        <dt>broadcastStatus <span class="property-type">string</span></dt>
+        <dd>Target status for <code>liveBroadcasts.transition</code>:
+        <code>testing</code>, <code>live</code>, or <code>complete</code>.</dd>
+
+        <dt>message <span class="property-type">string</span></dt>
+        <dd>Human-readable text for <code>notice</code>, <code>warning</code>, and
+        <code>error</code>. Notices use <em>Stream is ahead of schedule</em> when the
+        goal is behind the current stage; errors may use <em>Can't handle the stream status</em>.</dd>
+
+        <dt>code <span class="property-type">string</span></dt>
+        <dd><code>warning</code> only. Currently <code>bind_required</code> when the
+        broadcast must be bound externally before testing or going live.</dd>
+
+        <dt>error <span class="property-type">string</span></dt>
+        <dd><code>youtube_action_failed</code> only. API error message from YouTube.</dd>
+
+        <dt>updated <span class="property-type">array of string</span></dt>
+        <dd><code>configured</code> only. Names of settings changed, e.g.
+        <code>["streamTitle","pollIntervalNormal"]</code>.</dd>
+    </dl>
+
+    <h4>Event types</h4>
+    <dl class="message-properties">
+        <dt>stage_changed</dt>
+        <dd><code>current_stage</code> changed after a poll (includes <code>previous_stage</code>).</dd>
+
+        <dt>goal_set</dt>
+        <dd><code>set_goal</code> accepted; <code>goal_stage</code> updated.</dd>
+
+        <dt>goal_reached</dt>
+        <dd>Synced <code>current_stage</code> equals <code>goal_stage</code>.</dd>
+
+        <dt>configured</dt>
+        <dd><code>configure</code> applied; see <code>updated</code>.</dd>
+
+        <dt>transition_planned</dt>
+        <dd>Next step chosen; includes <code>next_stage</code> and often
+        <code>youtube_method</code> / <code>broadcastStatus</code>.</dd>
+
+        <dt>youtube_action_started</dt>
+        <dd>API call begun (<code>youtube_method</code>, optional <code>broadcastStatus</code>).</dd>
+
+        <dt>youtube_action_done</dt>
+        <dd>API call succeeded; may include new <code>broadcastId</code> or <code>streamId</code>.</dd>
+
+        <dt>youtube_action_failed</dt>
+        <dd>API call failed; includes <code>error</code>.</dd>
+
+        <dt>notice</dt>
+        <dd>Non-fatal condition (usually goal behind current stage); <code>message</code> set.</dd>
+
+        <dt>warning</dt>
+        <dd>External action needed; <code>code</code> is <code>bind_required</code>.</dd>
+
+        <dt>error</dt>
+        <dd>Fatal or auth problem; <code>message</code> describes the failure. Automation
+        stops until <code>reset</code> or status recovers.</dd>
+    </dl>
+
+    <h3>Details</h3>
+    <p>See the package <code>TrackerSpecification.md</code> for the full lifecycle matrix,
+    transition rules, and OAuth setup for <strong>youtube-account</strong>.</p>
 </script>
 
 <script type="text/javascript">
@@ -71,7 +280,7 @@
         },
         inputs: 1,
         outputs: 1,
-        icon: 'font-awesome/fa-youtube-play',
+        icon: 'font-awesome/fa-play',
         label: function () {
             return this.name || 'youtube stream tracker';
         }

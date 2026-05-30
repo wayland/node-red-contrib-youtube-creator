@@ -67,6 +67,59 @@ module.exports = function (RED) {
             node.send(outMsg);
         }
 
+        function applyConfigure(payload) {
+            const updated = [];
+
+            if (payload.broadcastId !== undefined) {
+                node.broadcastId = String(payload.broadcastId);
+                node.runtimeBroadcastId = node.broadcastId;
+                updated.push('broadcastId');
+            }
+            if (payload.streamId !== undefined) {
+                node.streamId = String(payload.streamId);
+                node.runtimeStreamId = node.streamId;
+                updated.push('streamId');
+            }
+            if (payload.broadcastTitle !== undefined) {
+                node.broadcastTitle = String(payload.broadcastTitle);
+                updated.push('broadcastTitle');
+            }
+            if (payload.streamTitle !== undefined) {
+                node.streamTitle = String(payload.streamTitle);
+                updated.push('streamTitle');
+            }
+            if (payload.skipTesting !== undefined) {
+                node.skipTesting = payload.skipTesting === true || payload.skipTesting === 'true';
+                updated.push('skipTesting');
+            }
+            if (payload.pollIntervalNormal !== undefined) {
+                const seconds = Number(payload.pollIntervalNormal);
+                if (!Number.isFinite(seconds) || seconds < 1) {
+                    throw new Error('pollIntervalNormal must be a number >= 1');
+                }
+                node.pollIntervalNormal = seconds;
+                updated.push('pollIntervalNormal');
+            }
+            if (payload.pollIntervalActive !== undefined) {
+                const seconds = Number(payload.pollIntervalActive);
+                if (!Number.isFinite(seconds) || seconds < 1) {
+                    throw new Error('pollIntervalActive must be a number >= 1');
+                }
+                node.pollIntervalActive = seconds;
+                updated.push('pollIntervalActive');
+            }
+            if (payload.pollIntervalExpensive !== undefined) {
+                const seconds = Number(payload.pollIntervalExpensive);
+                if (!Number.isFinite(seconds) || seconds < 1) {
+                    throw new Error('pollIntervalExpensive must be a number >= 1');
+                }
+                node.pollIntervalExpensive = seconds;
+                updated.push('pollIntervalExpensive');
+            }
+
+            return updated;
+        }
+
         function isPollOnlyStep(currentStage, nextStage) {
             const current = stages.normalizeStage(currentStage);
             const next = stages.normalizeStage(nextStage);
@@ -465,6 +518,13 @@ module.exports = function (RED) {
                     node.fatalError = false;
                     sendStatus('goal_set', { goal_stage: goal });
                     await node.tick(false);
+                } else if (action === 'configure') {
+                    const updated = applyConfigure(payload);
+                    if (updated.length === 0) {
+                        done('configure requires at least one recognized setting field');
+                        return;
+                    }
+                    sendStatus('configured', { updated });
                 } else if (action === 'sync') {
                     await node.tick(true);
                 } else if (action === 'reset') {

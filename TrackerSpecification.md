@@ -100,6 +100,8 @@ Placed on the canvas and wired like any flow node. References a **youtube-accoun
 | `pollIntervalActive` | no | Default **5s** — when status is a “Starting” state (`testStarting`, `liveStarting`), or after a recent API transition before expected stage appears |
 | `pollIntervalExpensive` | no | Default **60s** — for quota-heavy calls per [YouTube API quota](https://developers.google.com/youtube/v3/getting-started#quota) |
 
+Deploy-time values above are the defaults at node start. The same fields (except `name` and `account`) may be updated at runtime with the **`configure`** input action.
+
 The tracker detects bind state from YouTube (poll). It never calls `liveBroadcasts.bind`.
 
 #### Inputs
@@ -117,7 +119,7 @@ All input messages share this structure:
 }
 ```
 
-The **`goal`** field is required only when `action` is `"set_goal"`. Additional properties on `msg.payload` (e.g. correlation ids) may be ignored or passed through on status output — implementation choice.
+The **`goal`** field is required only when `action` is `"set_goal"`. For **`configure`**, include one or more setting fields (see below). Additional properties on `msg.payload` (e.g. correlation ids) may be ignored or passed through on status output — implementation choice.
 
 ##### Set goal (`set_goal`)
 
@@ -146,6 +148,53 @@ Set the stage the tracker should move toward. See **Transition rules** below.
 - If goal equals current stage → no-op except reaffirming `goal_stage`.
 
 The tracker does **not** jump multiple YouTube API transitions in one tick unless YouTube itself advances through transient states (`testStarting` → `testing`, etc.) during polling.
+
+##### Configure (`configure`)
+
+Update tracker settings at runtime without redeploying the flow. Only fields present in the message are changed; omitted fields keep their current values. Changes apply **in memory** for this node instance (they are not written back to the flow JSON in the editor).
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `action` | string | Must be `"configure"` |
+| `broadcastId` | string | Existing `liveBroadcast` id (empty string clears the configured id) |
+| `streamId` | string | Existing `liveStream` id (empty string clears the configured id) |
+| `broadcastTitle` | string | Title used when creating a new broadcast |
+| `streamTitle` | string | Title used when creating a new stream |
+| `skipTesting` | boolean | Skip `testStarting` / `testing` on the path toward live |
+| `pollIntervalNormal` | number | Routine poll interval in seconds (≥ 1) |
+| `pollIntervalActive` | number | Active poll interval in seconds (≥ 1) |
+| `pollIntervalExpensive` | number | Expensive poll interval in seconds (≥ 1) |
+
+**Not configurable via message:** `name`, `account` (set in the editor / deploy config only).
+
+**Behavior:**
+
+- At least one recognized setting field must be present; otherwise the tracker rejects the message.
+- `broadcastId` / `streamId` updates also update the runtime ids used for polling and API calls.
+- Title changes affect **the next** `liveBroadcasts.insert` / `liveStreams.insert` only; they do not rename resources already created on YouTube.
+- Emit **`configured`** on the output with an `updated` array listing the field names that changed.
+- Does not change `goal_stage` or `current_stage`. Does not poll unless a future extension adds `pollNow` (not in scope).
+
+Example (set stream title before advancing toward `created`):
+
+```json
+{
+  "action": "configure",
+  "streamTitle": "Sunday 10am — Main camera"
+}
+```
+
+Example (several fields at once):
+
+```json
+{
+  "action": "configure",
+  "broadcastTitle": "Church Live",
+  "streamTitle": "Church encoder",
+  "skipTesting": true,
+  "pollIntervalNormal": 30
+}
+```
 
 ##### Control actions
 
@@ -194,6 +243,7 @@ Emitted whenever something meaningful changes: synced stage, goal stage, transit
 | --- | --- |
 | `stage_changed` | `current_stage` updated from YouTube poll or after API transition |
 | `goal_set` | Input `set_goal` accepted; `goal_stage` updated |
+| `configured` | Input `configure` applied; includes `updated` (array of field names) |
 | `transition_planned` | Tracker will perform next in-scope YouTube step (includes `next_stage`, `goal_stage`) |
 | `youtube_action_started` | API call in flight (e.g. `liveBroadcasts.transition`) |
 | `youtube_action_done` | API call succeeded |
@@ -1383,7 +1433,7 @@ Link to [Troubleshoot your YouTube live stream](https://support.google.com/youtu
 - Selecting the **account** dropdown.
 - `broadcastId` / `streamId` vs creation titles.
 - `skipTesting` and poll intervals.
-- Input messages: `{ "action": "set_goal", "goal": "<stage>" }`, `{ "action": "sync" }`, `{ "action": "reset" }` (optional `pollNow` on reset).
+- Input messages: `{ "action": "set_goal", "goal": "<stage>" }`, `{ "action": "configure", ... }`, `{ "action": "sync" }`, `{ "action": "reset" }` (optional `pollNow` on reset).
 - Output events and `bind_required` warnings.
 - Example flow wiring (may mirror this spec’s diagram).
 

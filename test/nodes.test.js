@@ -32,4 +32,70 @@ describe('node registration', function () {
         assert.ok(tracker);
         assert.strictEqual(tracker.currentStage, 'not_yet_set');
     });
+
+    it('applies configure for stream title and poll intervals', async function () {
+        const flow = [
+            { id: 'account1', type: 'youtube-account', name: 'test account' },
+            {
+                id: 'tracker1',
+                type: 'youtube-stream-tracker',
+                name: 'test tracker',
+                account: 'account1',
+                streamTitle: 'Default stream',
+                wires: [['helper1']]
+            },
+            { id: 'helper1', type: 'helper' }
+        ];
+        await helper.load([accountNode, trackerNode], flow);
+        const tracker = helper.getNode('tracker1');
+        const helperNode = helper.getNode('helper1');
+
+        const configured = new Promise((resolve) => {
+            helperNode.on('input', (msg) => {
+                if (msg.payload.event === 'configured') {
+                    resolve(msg.payload);
+                }
+            });
+        });
+
+        tracker.receive({
+            payload: {
+                action: 'configure',
+                streamTitle: 'Sunday service',
+                pollIntervalNormal: 45
+            }
+        });
+
+        const event = await configured;
+        assert.deepStrictEqual(event.updated, ['streamTitle', 'pollIntervalNormal']);
+        assert.strictEqual(tracker.streamTitle, 'Sunday service');
+        assert.strictEqual(tracker.pollIntervalNormal, 45);
+    });
+
+    it('rejects configure with no recognized fields', async function () {
+        const flow = [
+            { id: 'account1', type: 'youtube-account', name: 'test account' },
+            {
+                id: 'tracker1',
+                type: 'youtube-stream-tracker',
+                account: 'account1',
+                wires: [[]]
+            }
+        ];
+        await helper.load([accountNode, trackerNode], flow);
+        const tracker = helper.getNode('tracker1');
+        let reported;
+
+        tracker.error = function (err) {
+            reported = err;
+        };
+
+        tracker.receive({
+            payload: { action: 'configure' }
+        });
+
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.ok(reported);
+        assert.match(String(reported), /recognized setting field/);
+    });
 });
