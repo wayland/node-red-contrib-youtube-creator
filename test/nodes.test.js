@@ -94,6 +94,7 @@ describe('node registration', function () {
         tracker.currentStage = 'ready';
         tracker.inFlight = true;
         tracker.fatalError = true;
+        tracker.fatalErrorMessage = 'Test fatal reason';
 
         assert.deepStrictEqual(tracker.getDynamicValues(), {
             name: 'test tracker',
@@ -109,7 +110,8 @@ describe('node registration', function () {
             goalStage: 'live',
             currentStage: 'ready',
             inFlight: true,
-            fatalError: true
+            fatalError: true,
+            fatalErrorMessage: 'Test fatal reason'
         });
     });
 

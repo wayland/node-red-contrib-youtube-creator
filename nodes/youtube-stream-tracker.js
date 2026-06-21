@@ -33,6 +33,7 @@ module.exports = function (RED) {
         node.goalReachedFor = null;
         node.lastBindWarningGoal = null;
         node.fatalError = false;
+        node.fatalErrorMessage = '';
         node.pollTimer = null;
         node.useExpensivePoll = false;
 
@@ -54,12 +55,23 @@ module.exports = function (RED) {
                 goalStage: node.goalStage,
                 currentStage: node.currentStage,
                 inFlight: node.inFlight,
-                fatalError: node.fatalError
+                fatalError: node.fatalError,
+                fatalErrorMessage: node.fatalErrorMessage
             };
         };
 
         function timestamp() {
             return new Date().toISOString();
+        }
+
+        function setFatalError(message) {
+            node.fatalError = true;
+            node.fatalErrorMessage = message;
+        }
+
+        function clearFatalError() {
+            node.fatalError = false;
+            node.fatalErrorMessage = '';
         }
 
         function basePayload(event) {
@@ -355,28 +367,30 @@ module.exports = function (RED) {
             }
 
             if (!node.account) {
-                node.fatalError = true;
-                sendStatus('error', { message: 'No youtube-account configured' });
+                const message = 'No youtube-account configured';
+                setFatalError(message);
+                sendStatus('error', { message });
                 return;
             }
 
             try {
                 await node.account.validateAuth();
                 if (node.account.authError) {
-                    node.fatalError = true;
+                    setFatalError(node.account.authError);
                     sendStatus('error', { message: node.account.authError });
                     return;
                 }
             } catch (err) {
-                node.fatalError = true;
+                setFatalError(err.message);
                 sendStatus('error', { message: err.message });
                 return;
             }
 
             if (stages.isErrorStage(node.currentStage)) {
-                node.fatalError = true;
+                const message = "Can't handle the stream status";
+                setFatalError(message);
                 sendStatus('error', {
-                    message: "Can't handle the stream status",
+                    message,
                     current_stage: node.currentStage
                 });
                 return;
@@ -414,7 +428,7 @@ module.exports = function (RED) {
             }
 
             if (plan.action === 'error') {
-                node.fatalError = true;
+                setFatalError(plan.message);
                 sendStatus('error', {
                     message: plan.message,
                     current_stage: node.currentStage
@@ -523,9 +537,10 @@ module.exports = function (RED) {
                         return;
                     }
                     if (stages.isErrorStage(node.currentStage)) {
-                        node.fatalError = true;
+                        const message = "Can't handle the stream status";
+                        setFatalError(message);
                         sendStatus('error', {
-                            message: "Can't handle the stream status",
+                            message,
                             current_stage: node.currentStage
                         });
                         done();
@@ -534,7 +549,7 @@ module.exports = function (RED) {
 
                     node.goalStage = goal;
                     node.goalReachedFor = null;
-                    node.fatalError = false;
+                    clearFatalError();
                     sendStatus('goal_set', { goal_stage: goal });
                     await node.tick(false);
                 } else if (action === 'configure') {
@@ -552,7 +567,7 @@ module.exports = function (RED) {
                     node.inFlight = false;
                     node.awaitingStage = null;
                     node.lastBindWarningGoal = null;
-                    node.fatalError = false;
+                    clearFatalError();
                     node.currentStage = 'not_yet_set';
                     node.runtimeBroadcastId = node.broadcastId;
                     node.runtimeStreamId = node.streamId;
@@ -562,7 +577,7 @@ module.exports = function (RED) {
                         schedulePoll();
                     }
                 } else {
-                    done(`Unknown action: ${action}`);
+                    done(`Unknown msg.payload.action: ${action}. Set msg.payload.action, not a top-level msg.action field.`);
                     return;
                 }
                 done();
