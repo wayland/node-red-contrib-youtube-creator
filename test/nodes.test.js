@@ -43,7 +43,11 @@ describe('node registration', function () {
         assert.strictEqual(account.getRedirectUri(), '/youtube-account/auth/callback');
         assert.strictEqual(
             account.getRedirectUri('http://127.0.0.1:1880'),
-            'http://127.0.0.1:1880/youtube-account/auth/callback'
+            'http://localhost:1880/youtube-account/auth/callback'
+        );
+        assert.strictEqual(
+            account.getRedirectUri('http://localhost:1880'),
+            'http://localhost:1880/youtube-account/auth/callback'
         );
     });
 

@@ -14,11 +14,15 @@ module.exports = function (RED) {
     function requestOrigin(req) {
         const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
         const host = req.get('x-forwarded-host') || req.get('host');
-        return `${protocol}://${host}`;
+        return `${protocol}://${normalizeLoopbackHost(host)}`;
+    }
+
+    function normalizeLoopbackHost(host) {
+        return String(host || '').replace(/^((?:https?:\/\/)?)127\.0\.0\.1(?=(:|$))/, '$1localhost');
     }
 
     function redirectUriFromOrigin(origin) {
-        return `${origin}${normalizedAdminRoot()}${AUTH_CALLBACK_PATH}`;
+        return `${normalizeLoopbackHost(origin)}${normalizedAdminRoot()}${AUTH_CALLBACK_PATH}`;
     }
 
     function YoutubeAccountNode(config) {
