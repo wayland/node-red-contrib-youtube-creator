@@ -158,17 +158,24 @@
             }
 
             function refreshStatus() {
-                $.getJSON('youtube-account/status/' + node.id, function (status) {
-                    if (status.connected) {
-                        $('#node-config-auth-status').text('Connected').css('color', 'green');
-                    } else if (status.error) {
-                        $('#node-config-auth-status').text(status.error).css('color', 'red');
-                    } else if (status.hasTokens) {
-                        $('#node-config-auth-status').text('Tokens stored; deploy to validate').css('color', '#999');
-                    } else {
-                        $('#node-config-auth-status').text('Not authenticated').css('color', '#999');
-                    }
-                });
+                $.getJSON('youtube-account/status/' + node.id)
+                    .done(function (status) {
+                        if (status.connected) {
+                            $('#node-config-auth-status').text('Connected').css('color', 'green');
+                        } else if (status.error) {
+                            $('#node-config-auth-status').text(status.error).css('color', 'red');
+                        } else if (status.hasTokens) {
+                            $('#node-config-auth-status').text('Tokens stored; deploy to validate').css('color', '#999');
+                        } else {
+                            $('#node-config-auth-status').text('Not authenticated').css('color', '#999');
+                        }
+                    })
+                    .fail(function (xhr) {
+                        const error = xhr.responseJSON && xhr.responseJSON.error
+                            ? xhr.responseJSON.error
+                            : 'Deploy this youtube-account node before authenticating.';
+                        $('#node-config-auth-status').text(error).css('color', 'red');
+                    });
             }
 
             $('#node-config-authenticate').on('click', function () {

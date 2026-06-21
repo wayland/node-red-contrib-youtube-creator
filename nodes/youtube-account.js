@@ -109,7 +109,7 @@ module.exports = function (RED) {
     RED.httpAdmin.get('/youtube-account/auth/:id', RED.auth.needsPermission('flows.write'), function (req, res) {
         const accountNode = RED.nodes.getNode(req.params.id);
         if (!accountNode || accountNode.type !== 'youtube-account') {
-            res.status(404).send('Unknown youtube-account node');
+            res.status(404).send('Unknown youtube-account node. Click Done and Deploy before using Authenticate.');
             return;
         }
 
@@ -174,7 +174,10 @@ module.exports = function (RED) {
     RED.httpAdmin.get('/youtube-account/status/:id', RED.auth.needsPermission('flows.read'), function (req, res) {
         const accountNode = RED.nodes.getNode(req.params.id);
         if (!accountNode || accountNode.type !== 'youtube-account') {
-            res.status(404).json({ connected: false, error: 'Unknown node' });
+            res.status(404).json({
+                connected: false,
+                error: 'Unknown youtube-account node. Click Done and Deploy before using Authenticate.'
+            });
             return;
         }
         res.json({
