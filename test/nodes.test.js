@@ -51,6 +51,33 @@ describe('node registration', function () {
         );
     });
 
+    it('stores OAuth tokens against the account node id', async function () {
+        const flow = [
+            { id: 'account1', type: 'youtube-account', name: 'test account' }
+        ];
+        await helper.load(accountNode, flow, {
+            account1: {
+                clientId: 'client-id',
+                clientSecret: 'client-secret'
+            }
+        });
+        const account = helper.getNode('account1');
+
+        account.saveTokens({
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+            expiryDate: '123'
+        });
+
+        assert.deepStrictEqual(helper.credentials.get('account1'), {
+            clientId: 'client-id',
+            clientSecret: 'client-secret',
+            accessToken: 'access-token',
+            refreshToken: 'refresh-token',
+            expiryDate: '123'
+        });
+    });
+
     it('applies configure for stream title and poll intervals', async function () {
         const flow = [
             { id: 'account1', type: 'youtube-account', name: 'test account' },
