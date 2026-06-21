@@ -182,10 +182,11 @@
                 $.ajax({
                     url: 'youtube-account/auth/' + node.id,
                     method: 'POST',
-                    data: {
+                    contentType: 'application/json',
+                    data: JSON.stringify({
                         clientId: $('#node-config-input-clientId').val(),
                         clientSecret: $('#node-config-input-clientSecret').val()
-                    }
+                    })
                 })
                     .done(function (response) {
                         window.open(response.authUrl, 'youtube-oauth', 'width=600,height=700');

@@ -46,7 +46,7 @@ module.exports = function (RED) {
 
     function createOAuth2ClientFromCredentials(creds, redirectUri) {
         if (!creds.clientId || !creds.clientSecret) {
-            throw new Error('OAuth client id and secret are required');
+            throw new Error('OAuth client id and secret are required. Enter both fields in the youtube-account dialog; if the secret was saved previously, retype it before clicking Authenticate.');
         }
         return api.createOAuth2Client(creds.clientId, creds.clientSecret, redirectUri);
     }
