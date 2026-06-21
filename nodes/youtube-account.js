@@ -1,5 +1,6 @@
 'use strict';
 
+const bodyParser = require('body-parser');
 const api = require('../lib/youtube-api');
 
 module.exports = function (RED) {
@@ -44,16 +45,25 @@ module.exports = function (RED) {
         return merged;
     }
 
-    function createOAuth2ClientFromCredentials(creds, redirectUri) {
+    function describeCredentialState(creds, supplied) {
+        return [
+            `stored client id: ${creds.clientId ? 'yes' : 'no'}`,
+            `stored client secret: ${creds.clientSecret ? 'yes' : 'no'}`,
+            `submitted client id: ${supplied && supplied.clientId ? 'yes' : 'no'}`,
+            `submitted client secret: ${supplied && supplied.clientSecret && supplied.clientSecret !== '__PWRD__' ? 'yes' : 'no'}`
+        ].join(', ');
+    }
+
+    function createOAuth2ClientFromCredentials(creds, redirectUri, supplied) {
         if (!creds.clientId || !creds.clientSecret) {
-            throw new Error('OAuth client id and secret are required. Enter both fields in the youtube-account dialog; if the secret was saved previously, retype it before clicking Authenticate.');
+            throw new Error(`OAuth client id and secret are required (${describeCredentialState(creds, supplied)}).`);
         }
         return api.createOAuth2Client(creds.clientId, creds.clientSecret, redirectUri);
     }
 
     function createOAuth2Client(id, accountNode, redirectUri, supplied) {
         const creds = mergeCredentials(id, accountNode, supplied);
-        return createOAuth2ClientFromCredentials(creds, redirectUri || accountNode?.getRedirectUri());
+        return createOAuth2ClientFromCredentials(creds, redirectUri || accountNode?.getRedirectUri(), supplied);
     }
 
     function saveTokens(id, accountNode, tokens, supplied) {
@@ -143,9 +153,15 @@ module.exports = function (RED) {
         startAuth(req, res, false);
     });
 
-    RED.httpAdmin.post('/youtube-account/auth/:id', RED.auth.needsPermission('flows.write'), function (req, res) {
-        startAuth(req, res, true);
-    });
+    RED.httpAdmin.post(
+        '/youtube-account/auth/:id',
+        RED.auth.needsPermission('flows.write'),
+        bodyParser.json({ limit: '100kb' }),
+        bodyParser.urlencoded({ extended: true, limit: '100kb' }),
+        function (req, res) {
+            startAuth(req, res, true);
+        }
+    );
 
     function startAuth(req, res, returnJson) {
         const accountNode = RED.nodes.getNode(req.params.id);
