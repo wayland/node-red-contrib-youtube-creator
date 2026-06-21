@@ -6,6 +6,21 @@ module.exports = function (RED) {
     const AUTH_CALLBACK_PATH = '/youtube-account/auth/callback';
     const pendingAuth = new Map();
 
+    function normalizedAdminRoot() {
+        const root = RED.settings.httpAdminRoot || '/';
+        return root.endsWith('/') ? root.slice(0, -1) : root;
+    }
+
+    function requestOrigin(req) {
+        const protocol = req.get('x-forwarded-proto') || req.protocol || 'http';
+        const host = req.get('x-forwarded-host') || req.get('host');
+        return `${protocol}://${host}`;
+    }
+
+    function redirectUriFromOrigin(origin) {
+        return `${origin}${normalizedAdminRoot()}${AUTH_CALLBACK_PATH}`;
+    }
+
     function YoutubeAccountNode(config) {
         RED.nodes.createNode(this, config);
         const node = this;
@@ -15,10 +30,11 @@ module.exports = function (RED) {
         node.connected = false;
         node.authError = null;
 
-        node.getRedirectUri = function () {
-            const root = RED.settings.httpAdminRoot || '/';
-            const adminRoot = root.endsWith('/') ? root.slice(0, -1) : root;
-            return `${adminRoot}${AUTH_CALLBACK_PATH}`;
+        node.getRedirectUri = function (origin) {
+            if (origin) {
+                return redirectUriFromOrigin(origin);
+            }
+            return `${normalizedAdminRoot()}${AUTH_CALLBACK_PATH}`;
         };
 
         node.saveTokens = function (tokens) {
@@ -32,12 +48,12 @@ module.exports = function (RED) {
             node.authError = null;
         };
 
-        node.getOAuth2Client = function () {
+        node.getOAuth2Client = function (redirectUri) {
             const creds = node.credentials || {};
             if (!creds.clientId || !creds.clientSecret) {
                 throw new Error('OAuth client id and secret are required');
             }
-            return api.createOAuth2Client(creds.clientId, creds.clientSecret, node.getRedirectUri());
+            return api.createOAuth2Client(creds.clientId, creds.clientSecret, redirectUri || node.getRedirectUri());
         };
 
         node.getYouTubeClient = async function () {
@@ -94,9 +110,13 @@ module.exports = function (RED) {
         }
 
         try {
-            const oauth2Client = accountNode.getOAuth2Client();
+            const redirectUri = accountNode.getRedirectUri(requestOrigin(req));
+            const oauth2Client = accountNode.getOAuth2Client(redirectUri);
             const state = `${accountNode.id}:${Date.now()}`;
-            pendingAuth.set(state, accountNode.id);
+            pendingAuth.set(state, {
+                nodeId: accountNode.id,
+                redirectUri
+            });
             res.redirect(api.buildAuthUrl(oauth2Client, state));
         } catch (err) {
             res.status(400).send(err.message);
@@ -118,14 +138,14 @@ module.exports = function (RED) {
             return;
         }
 
-        const nodeId = pendingAuth.get(state);
+        const pending = pendingAuth.get(state);
         pendingAuth.delete(state);
-        if (!nodeId) {
+        if (!pending) {
             res.status(400).send('OAuth state expired or invalid; start authentication again');
             return;
         }
 
-        const accountNode = RED.nodes.getNode(nodeId);
+        const accountNode = RED.nodes.getNode(pending.nodeId);
         if (!accountNode) {
             res.status(404).send('youtube-account node no longer exists');
             return;
@@ -133,7 +153,7 @@ module.exports = function (RED) {
 
         (async () => {
             try {
-                const oauth2Client = accountNode.getOAuth2Client();
+                const oauth2Client = accountNode.getOAuth2Client(pending.redirectUri);
                 const tokens = await api.exchangeCode(oauth2Client, code);
                 if (!tokens.refreshToken) {
                     res.status(400).send('No refresh token received; revoke prior access and authenticate again with prompt=consent');

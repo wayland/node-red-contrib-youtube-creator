@@ -150,7 +150,7 @@
             const node = this;
             const adminRoot = RED.settings.httpAdminRoot || '/';
             const normalizedRoot = adminRoot.endsWith('/') ? adminRoot.slice(0, -1) : adminRoot;
-            $('#node-config-redirect-uri').text(normalizedRoot + '/youtube-account/auth/callback');
+            $('#node-config-redirect-uri').text(window.location.origin + normalizedRoot + '/youtube-account/auth/callback');
 
             if (this.credentials && this.credentials.clientId) {
                 $('#node-config-input-clientId').val(this.credentials.clientId);

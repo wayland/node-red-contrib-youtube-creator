@@ -33,6 +33,20 @@ describe('node registration', function () {
         assert.strictEqual(tracker.currentStage, 'not_yet_set');
     });
 
+    it('builds an absolute OAuth redirect URI from the editor origin', async function () {
+        const flow = [
+            { id: 'account1', type: 'youtube-account', name: 'test account' }
+        ];
+        await helper.load(accountNode, flow);
+        const account = helper.getNode('account1');
+
+        assert.strictEqual(account.getRedirectUri(), '/youtube-account/auth/callback');
+        assert.strictEqual(
+            account.getRedirectUri('http://127.0.0.1:1880'),
+            'http://127.0.0.1:1880/youtube-account/auth/callback'
+        );
+    });
+
     it('applies configure for stream title and poll intervals', async function () {
         const flow = [
             { id: 'account1', type: 'youtube-account', name: 'test account' },
