@@ -1,6 +1,5 @@
 'use strict';
 
-const bodyParser = require('body-parser');
 const api = require('../lib/youtube-api');
 
 module.exports = function (RED) {
@@ -77,6 +76,42 @@ module.exports = function (RED) {
             accountNode.connected = !!(merged.accessToken && merged.refreshToken);
             accountNode.authError = null;
         }
+    }
+
+    function parseAuthBody(req, res, next) {
+        if (req.body && Object.keys(req.body).length > 0) {
+            next();
+            return;
+        }
+
+        let body = '';
+        req.setEncoding('utf8');
+        req.on('data', (chunk) => {
+            body += chunk;
+            if (body.length > 100000) {
+                req.destroy();
+            }
+        });
+        req.on('end', () => {
+            try {
+                const contentType = req.headers['content-type'] || '';
+                if (!body) {
+                    req.body = {};
+                } else if (contentType.includes('application/json')) {
+                    req.body = JSON.parse(body);
+                } else if (contentType.includes('application/x-www-form-urlencoded')) {
+                    req.body = Object.fromEntries(new URLSearchParams(body));
+                } else {
+                    req.body = {};
+                }
+                next();
+            } catch (err) {
+                res.status(400).send(`Invalid auth request body: ${err.message}`);
+            }
+        });
+        req.on('error', (err) => {
+            res.status(400).send(`Invalid auth request body: ${err.message}`);
+        });
     }
 
     function YoutubeAccountNode(config) {
@@ -156,8 +191,7 @@ module.exports = function (RED) {
     RED.httpAdmin.post(
         '/youtube-account/auth/:id',
         RED.auth.needsPermission('flows.write'),
-        bodyParser.json({ limit: '100kb' }),
-        bodyParser.urlencoded({ extended: true, limit: '100kb' }),
+        parseAuthBody,
         function (req, res) {
             startAuth(req, res, true);
         }
