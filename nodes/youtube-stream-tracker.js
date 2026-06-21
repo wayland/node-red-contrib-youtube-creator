@@ -39,6 +39,25 @@ module.exports = function (RED) {
         node.runtimeBroadcastId = node.broadcastId;
         node.runtimeStreamId = node.streamId;
 
+        node.getDynamicValues = function () {
+            return {
+                name: node.name || '',
+                account: node.account ? (node.account.name || node.account.id) : '',
+                broadcastId: node.runtimeBroadcastId || '',
+                streamId: node.runtimeStreamId || '',
+                broadcastTitle: node.broadcastTitle,
+                streamTitle: node.streamTitle,
+                skipTesting: node.skipTesting,
+                pollIntervalNormal: node.pollIntervalNormal,
+                pollIntervalActive: node.pollIntervalActive,
+                pollIntervalExpensive: node.pollIntervalExpensive,
+                goalStage: node.goalStage,
+                currentStage: node.currentStage,
+                inFlight: node.inFlight,
+                fatalError: node.fatalError
+            };
+        };
+
         function timestamp() {
             return new Date().toISOString();
         }
@@ -560,4 +579,17 @@ module.exports = function (RED) {
     }
 
     RED.nodes.registerType('youtube-stream-tracker', YoutubeStreamTrackerNode);
+
+    RED.httpAdmin.get(
+        '/youtube-stream-tracker/status/:id',
+        RED.auth.needsPermission('flows.read'),
+        function (req, res) {
+            const trackerNode = RED.nodes.getNode(req.params.id);
+            if (!trackerNode || trackerNode.type !== 'youtube-stream-tracker') {
+                res.status(404).json({ error: 'Unknown youtube-stream-tracker node' });
+                return;
+            }
+            res.json(trackerNode.getDynamicValues());
+        }
+    );
 };

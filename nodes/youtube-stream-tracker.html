@@ -1,44 +1,122 @@
+<style>
+    .youtube-tracker-property-grid {
+        display: grid;
+        grid-template-columns: 150px minmax(180px, 1fr) minmax(150px, 0.8fr);
+        gap: 8px 12px;
+        align-items: center;
+    }
+
+    .youtube-tracker-property-grid .form-row {
+        display: contents;
+    }
+
+    .youtube-tracker-property-grid label {
+        width: auto;
+        margin: 0;
+    }
+
+    .youtube-tracker-property-grid input {
+        width: 100%;
+    }
+
+    .youtube-tracker-property-grid input[type="checkbox"] {
+        width: auto;
+    }
+
+    .youtube-tracker-property-header {
+        font-weight: bold;
+        color: var(--red-ui-secondary-text-color, #666);
+    }
+
+    .youtube-tracker-dynamic-value {
+        min-height: 20px;
+        color: var(--red-ui-primary-text-color, #333);
+        overflow-wrap: anywhere;
+    }
+
+    .youtube-tracker-dynamic-muted {
+        color: var(--red-ui-secondary-text-color, #777);
+    }
+</style>
+
 <script type="text/html" data-template-name="youtube-stream-tracker">
+    <div class="youtube-tracker-property-grid">
+        <div class="youtube-tracker-property-header">Field</div>
+        <div class="youtube-tracker-property-header">Manual input</div>
+        <div class="youtube-tracker-property-header">Dynamic value in use</div>
+
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="name"></span>
     </div>
     <div class="form-row">
         <label for="node-input-account"><i class="fa fa-user"></i> Account</label>
         <input type="text" id="node-input-account">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="account"></span>
     </div>
     <div class="form-row">
         <label for="node-input-broadcastId"><i class="fa fa-youtube-play"></i> Broadcast ID</label>
         <input type="text" id="node-input-broadcastId" placeholder="Optional; created when advancing to created+">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="broadcastId"></span>
     </div>
     <div class="form-row">
         <label for="node-input-streamId"><i class="fa fa-video-camera"></i> Stream ID</label>
         <input type="text" id="node-input-streamId" placeholder="Optional; created when needed">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="streamId"></span>
     </div>
     <div class="form-row">
         <label for="node-input-broadcastTitle"><i class="fa fa-header"></i> Broadcast title</label>
         <input type="text" id="node-input-broadcastTitle" placeholder="Used when creating a broadcast">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="broadcastTitle"></span>
     </div>
     <div class="form-row">
         <label for="node-input-streamTitle"><i class="fa fa-header"></i> Stream title</label>
         <input type="text" id="node-input-streamTitle" placeholder="Used when creating a stream">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="streamTitle"></span>
     </div>
     <div class="form-row">
-        <label for="node-input-skipTesting">&nbsp;</label>
-        <input type="checkbox" id="node-input-skipTesting" style="width:auto;">
-        <label for="node-input-skipTesting" style="width:auto;">Skip testing stage</label>
+        <label for="node-input-skipTesting">Skip testing stage</label>
+        <span>
+            <input type="checkbox" id="node-input-skipTesting">
+        </span>
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="skipTesting"></span>
     </div>
     <div class="form-row">
         <label for="node-input-pollIntervalNormal"><i class="fa fa-clock-o"></i> Poll (normal, s)</label>
         <input type="number" id="node-input-pollIntervalNormal" min="1" placeholder="20">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="pollIntervalNormal"></span>
     </div>
     <div class="form-row">
         <label for="node-input-pollIntervalActive"><i class="fa fa-bolt"></i> Poll (active, s)</label>
         <input type="number" id="node-input-pollIntervalActive" min="1" placeholder="5">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="pollIntervalActive"></span>
     </div>
     <div class="form-row">
         <label for="node-input-pollIntervalExpensive"><i class="fa fa-hourglass-half"></i> Poll (expensive, s)</label>
         <input type="number" id="node-input-pollIntervalExpensive" min="1" placeholder="60">
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="pollIntervalExpensive"></span>
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-crosshairs"></i> Goal state</label>
+        <span class="youtube-tracker-dynamic-muted">Set with <code>set_goal</code></span>
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="goalStage"></span>
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-map-marker"></i> Current state</label>
+        <span class="youtube-tracker-dynamic-muted">Synced from YouTube</span>
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="currentStage"></span>
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-spinner"></i> API action in flight</label>
+        <span class="youtube-tracker-dynamic-muted">Transition/create call running</span>
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="inFlight"></span>
+    </div>
+    <div class="form-row">
+        <label><i class="fa fa-exclamation-triangle"></i> Fatal error</label>
+        <span class="youtube-tracker-dynamic-muted">Goal processing stopped</span>
+        <span class="youtube-tracker-dynamic-value" data-dynamic-field="fatalError"></span>
+    </div>
     </div>
 </script>
 
@@ -283,6 +361,37 @@
         icon: 'font-awesome/fa-play',
         label: function () {
             return this.name || 'youtube stream tracker';
+        },
+        oneditprepare: function () {
+            const empty = '—';
+            const unavailable = 'Not deployed';
+
+            function setDynamicValues(values) {
+                $('.youtube-tracker-dynamic-value').each(function () {
+                    const field = $(this).data('dynamic-field');
+                    const value = values && values[field];
+                    $(this)
+                        .text(value === undefined || value === null || value === '' ? empty : String(value))
+                        .toggleClass('youtube-tracker-dynamic-muted', value === undefined || value === null || value === '');
+                });
+            }
+
+            setDynamicValues({});
+
+            if (!this.id) {
+                return;
+            }
+
+            $.getJSON(`youtube-stream-tracker/status/${encodeURIComponent(this.id)}`)
+                .done(function (data) {
+                    setDynamicValues(data);
+                })
+                .fail(function () {
+                    setDynamicValues({});
+                    $('.youtube-tracker-dynamic-value')
+                        .text(unavailable)
+                        .addClass('youtube-tracker-dynamic-muted');
+                });
         }
     });
 </script>

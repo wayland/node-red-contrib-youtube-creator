@@ -72,6 +72,47 @@ describe('node registration', function () {
         assert.strictEqual(tracker.pollIntervalNormal, 45);
     });
 
+    it('exposes dynamic editor values for runtime state', async function () {
+        const flow = [
+            { id: 'account1', type: 'youtube-account', name: 'test account' },
+            {
+                id: 'tracker1',
+                type: 'youtube-stream-tracker',
+                name: 'test tracker',
+                account: 'account1',
+                broadcastId: 'configured-broadcast',
+                streamId: 'configured-stream',
+                wires: [[]]
+            }
+        ];
+        await helper.load([accountNode, trackerNode], flow);
+        const tracker = helper.getNode('tracker1');
+
+        tracker.runtimeBroadcastId = 'runtime-broadcast';
+        tracker.runtimeStreamId = 'runtime-stream';
+        tracker.goalStage = 'live';
+        tracker.currentStage = 'ready';
+        tracker.inFlight = true;
+        tracker.fatalError = true;
+
+        assert.deepStrictEqual(tracker.getDynamicValues(), {
+            name: 'test tracker',
+            account: 'test account',
+            broadcastId: 'runtime-broadcast',
+            streamId: 'runtime-stream',
+            broadcastTitle: 'Node-RED Live Broadcast',
+            streamTitle: 'Node-RED Live Stream',
+            skipTesting: false,
+            pollIntervalNormal: 20,
+            pollIntervalActive: 5,
+            pollIntervalExpensive: 60,
+            goalStage: 'live',
+            currentStage: 'ready',
+            inFlight: true,
+            fatalError: true
+        });
+    });
+
     it('rejects configure with no recognized fields', async function () {
         const flow = [
             { id: 'account1', type: 'youtube-account', name: 'test account' },
