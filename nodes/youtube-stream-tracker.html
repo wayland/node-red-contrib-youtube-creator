@@ -363,6 +363,7 @@
             return this.name || 'youtube stream tracker';
         },
         oneditprepare: function () {
+            const node = this;
             const empty = '—';
             const unavailable = 'Not deployed';
 
@@ -376,22 +377,38 @@
                 });
             }
 
+            function refreshDynamicValues() {
+                $.getJSON(`youtube-stream-tracker/status/${encodeURIComponent(node.id)}`)
+                    .done(function (data) {
+                        setDynamicValues(data);
+                    })
+                    .fail(function () {
+                        setDynamicValues({});
+                        $('.youtube-tracker-dynamic-value')
+                            .text(unavailable)
+                            .addClass('youtube-tracker-dynamic-muted');
+                    });
+            }
+
+            if (node._dynamicValuesRefreshTimer) {
+                clearInterval(node._dynamicValuesRefreshTimer);
+            }
             setDynamicValues({});
 
-            if (!this.id) {
+            if (!node.id) {
                 return;
             }
 
-            $.getJSON(`youtube-stream-tracker/status/${encodeURIComponent(this.id)}`)
-                .done(function (data) {
-                    setDynamicValues(data);
-                })
-                .fail(function () {
-                    setDynamicValues({});
-                    $('.youtube-tracker-dynamic-value')
-                        .text(unavailable)
-                        .addClass('youtube-tracker-dynamic-muted');
-                });
+            refreshDynamicValues();
+            node._dynamicValuesRefreshTimer = setInterval(refreshDynamicValues, 2000);
+        },
+        oneditsave: function () {
+            clearInterval(this._dynamicValuesRefreshTimer);
+            this._dynamicValuesRefreshTimer = null;
+        },
+        oneditcancel: function () {
+            clearInterval(this._dynamicValuesRefreshTimer);
+            this._dynamicValuesRefreshTimer = null;
         }
     });
 </script>
