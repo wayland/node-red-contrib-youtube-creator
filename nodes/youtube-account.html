@@ -179,7 +179,22 @@
             }
 
             $('#node-config-authenticate').on('click', function () {
-                window.open('youtube-account/auth/' + node.id, 'youtube-oauth', 'width=600,height=700');
+                $.ajax({
+                    url: 'youtube-account/auth/' + node.id,
+                    method: 'POST',
+                    data: {
+                        clientId: $('#node-config-input-clientId').val(),
+                        clientSecret: $('#node-config-input-clientSecret').val()
+                    }
+                })
+                    .done(function (response) {
+                        window.open(response.authUrl, 'youtube-oauth', 'width=600,height=700');
+                    })
+                    .fail(function (xhr) {
+                        $('#node-config-auth-status')
+                            .text(xhr.responseText || 'Authentication could not be started.')
+                            .css('color', 'red');
+                    });
             });
 
             refreshStatus();

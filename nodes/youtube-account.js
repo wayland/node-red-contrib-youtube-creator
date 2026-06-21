@@ -29,17 +29,36 @@ module.exports = function (RED) {
         return (accountNode && accountNode.credentials) || RED.nodes.getCredentials(id) || {};
     }
 
-    function createOAuth2Client(id, accountNode, redirectUri) {
-        const creds = credentialsForNode(id, accountNode);
+    function mergeCredentials(id, accountNode, supplied) {
+        const merged = {
+            ...credentialsForNode(id, accountNode)
+        };
+        if (supplied) {
+            if (supplied.clientId) {
+                merged.clientId = supplied.clientId;
+            }
+            if (supplied.clientSecret && supplied.clientSecret !== '__PWRD__') {
+                merged.clientSecret = supplied.clientSecret;
+            }
+        }
+        return merged;
+    }
+
+    function createOAuth2ClientFromCredentials(creds, redirectUri) {
         if (!creds.clientId || !creds.clientSecret) {
             throw new Error('OAuth client id and secret are required');
         }
-        return api.createOAuth2Client(creds.clientId, creds.clientSecret, redirectUri || accountNode?.getRedirectUri());
+        return api.createOAuth2Client(creds.clientId, creds.clientSecret, redirectUri);
     }
 
-    function saveTokens(id, accountNode, tokens) {
+    function createOAuth2Client(id, accountNode, redirectUri, supplied) {
+        const creds = mergeCredentials(id, accountNode, supplied);
+        return createOAuth2ClientFromCredentials(creds, redirectUri || accountNode?.getRedirectUri());
+    }
+
+    function saveTokens(id, accountNode, tokens, supplied) {
         const merged = {
-            ...credentialsForNode(id, accountNode),
+            ...mergeCredentials(id, accountNode, supplied),
             ...tokens
         };
         RED.nodes.addCredentials(id, merged);
@@ -121,28 +140,36 @@ module.exports = function (RED) {
     });
 
     RED.httpAdmin.get('/youtube-account/auth/:id', RED.auth.needsPermission('flows.write'), function (req, res) {
+        startAuth(req, res, false);
+    });
+
+    RED.httpAdmin.post('/youtube-account/auth/:id', RED.auth.needsPermission('flows.write'), function (req, res) {
+        startAuth(req, res, true);
+    });
+
+    function startAuth(req, res, returnJson) {
         const accountNode = RED.nodes.getNode(req.params.id);
-        if (!accountNode || accountNode.type !== 'youtube-account') {
-            const creds = RED.nodes.getCredentials(req.params.id);
-            if (!creds) {
-                res.status(404).send('Unknown youtube-account node. Click Done and Deploy before using Authenticate.');
-                return;
-            }
-        }
+        const supplied = req.body || {};
 
         try {
             const redirectUri = redirectUriFromOrigin(requestOrigin(req));
-            const oauth2Client = createOAuth2Client(req.params.id, accountNode, redirectUri);
+            const oauth2Client = createOAuth2Client(req.params.id, accountNode, redirectUri, supplied);
             const state = `${req.params.id}:${Date.now()}`;
             pendingAuth.set(state, {
                 nodeId: req.params.id,
-                redirectUri
+                redirectUri,
+                credentials: mergeCredentials(req.params.id, accountNode, supplied)
             });
-            res.redirect(api.buildAuthUrl(oauth2Client, state));
+            const authUrl = api.buildAuthUrl(oauth2Client, state);
+            if (returnJson) {
+                res.json({ authUrl });
+            } else {
+                res.redirect(authUrl);
+            }
         } catch (err) {
             res.status(400).send(err.message);
         }
-    });
+    }
 
     RED.httpAdmin.get(AUTH_CALLBACK_PATH, function (req, res) {
         const code = req.query.code;
@@ -176,7 +203,7 @@ module.exports = function (RED) {
                     res.status(400).send('No refresh token received; revoke prior access and authenticate again with prompt=consent');
                     return;
                 }
-                saveTokens(pending.nodeId, accountNode, tokens);
+                saveTokens(pending.nodeId, accountNode, tokens, pending.credentials);
                 res.send('<html><body><h2>YouTube account connected</h2><p>You can close this window and deploy your flows.</p></body></html>');
             } catch (err) {
                 res.status(500).send(`Token exchange failed: ${err.message}`);
